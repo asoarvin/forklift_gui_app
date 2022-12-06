@@ -2,17 +2,25 @@
 import threading
 import time
 import yaml
+try:
+    from cyngn_state_manager.srv import ForkliftEventInput, ForkliftEventInputResponse
+    from cyngn_state_manager.srv import ForkliftEventSelection
+    from cyngn_state_manager.srv import ForkliftEnableAutonomy, ForkliftEnableAutonomyResponse
+    from cyngn_state_manager.msg import ForkliftState
+except Exception as e:
+    print(f"ERROR {e}\nERROR IMPORTING STATE MANAGER")
+    pass
 
 try:
     import rospy
     from std_msgs.msg import String
 except Exception as e:
-    print(e)
+    print(f"ERROR {e}\nERROR IMPORTING ROS")
     pass
 
 # TODO: make this the state manager topic
 FILE_TOPICS_YAML = 'topics.yaml'
-TOPIC_STATES = '/vehicle/odometry'
+TOPIC_STATES = '/current_state'
 TOPIC_OUSTER = '/vehicle/odometry'
 TOPIC_VISIONARY_T = '/vehicle/odometry'
 TOPIC_STW = '/vehicle/odometry'
@@ -20,12 +28,6 @@ TOPIC_TIM = '/vehicle/odometry'
 
 GUI_PUBLISH_TOPIC = '/forklift_gui'
 
-'''
-We recieve the current state from the ros topic mentioned above. 
-
-from this we need to direct the screen manager in forklift_gui.py
-
-'''
 STATE_SPACE = { 
     0: "STATE_ERROR",
     1: "STATE_MANUAL",
@@ -45,6 +47,25 @@ STATE_SPACE = {
     15: "STATE_PLACESTACK_PLACE_PALLET"
 }
 
+STATES_TOPIC_TRANSLATION = {
+    0: "error",
+    1: "manual",
+    2: "autonomy_init",
+    3: "pick_init",
+    4: "pick_select",
+    5: "fork_approx_align",
+    6: "pocket_detect_enable",
+    7: "closed_loop_fork_enable",
+    8: "pocket_detect_closed_loop_disable",
+    9: "list_pallet",
+    10: "place_ground_init",
+    11: "place_ground_place_pallet",
+    12: "place_stack_init",
+    13: "place_stack_fork_approx_align",
+    14: "place_stack_pallet_align",
+    15: "place_stack_place_pallet"
+}
+
 class ROS_STATES():
     def __init__(self):
         self.last_state = STATE_SPACE[0]
@@ -57,9 +78,17 @@ class ROS_STATES():
 
         # To be published
         self.user_enabled_autonomy = False
-        self.user_selected_mode = 0
-        self.user_selected_pallet = 0
-        self.user_selected_pallet_valid = False
+        
+        self.flag_ask_for_mode_selection = False                # For GUI Clock 
+        self.flag_ask_mode_again = False                        # for close / re-open buttons
+        self.flag_ask_for_pallet_selection = False              # For GUI Clock
+        self.flag_ask_pallet_again = False                      # for close / re-open buttons
+
+        self.flag_mode_selected = False 
+        self.flag_pallet_selected = False 
+
+        self.user_selected_mode = 0             # 1: pick, 2: place stack, 3: place ground
+        self.user_selected_pallet = 0           # 0 is bottom pallet, already valid, if not, is NONE
         self.user_inserted_forks = False
 
         # Fork Relative to Pocket Positions
@@ -98,45 +127,55 @@ class ROS_STATES():
 
         self.stack_height_alignment = False
         self.pallet_aligned = False
-        
-        #self.load_topics_yaml()
 
-        # TODO: use yaml topics and subscribe with a callback for each
-        try:
-            self.ros_thread = threading.Thread(target=lambda: rospy.init_node('cyngn_fork_gui_node', disable_signals=True)).start()
-            rospy.Subscriber(TOPIC_STATES, String, self.states_callback)
-            self.pub = rospy.Publisher(GUI_PUBLISH_TOPIC, String, queue_size=10)
-        except Exception as e:
-            print(f"[ERROR] {e}\nDID NOT CREATE ROS\n")
-            pass
+        self.init_ros()
     
-    def load_topics_yaml(self):
+    def init_ros(self):
         try:
-            with open(FILE_TOPICS_YAML, 'r') as file:
-                    self.topics = yaml.safe_load(file)
-            
-            self.ouster_topic = self.topics['ouster']
-            self.vis_t__topic = self.topics['visionary_t']
-            self.tim_topic = self.topics['tim']
-            self.stw_topic = self.topics['stw']
-        except:
-            print(f"COULDN'T LOAD TOPICS YAML {FILE_TOPICS_YAML}")
+            # self.ros_thread = threading.Thread(target=lambda: ).start()
+            rospy.init_node('forklift_gui_node', disable_signals=True)
 
-    def states_callback(self, msg): # TODO
-        print(msg.data)
-        try:
-            if msg != self.current_state:
-                self.change_state(msg)
-        except Exception as e:
-            print(f"ERROR: {e}\n")
-        return
+            rospy.Subscriber(TOPIC_STATES, ForkliftState, self.states_callback)
+            self.pub = rospy.Publisher(GUI_PUBLISH_TOPIC, String, queue_size=10)
 
-    def ouster_view_obstructed_callback(self, msg):
-        try:
-            print(f"recieved {msg.data}")
-            self.blocked = bool(msg.data)
+            # schedule ros services servers for event selection and input
+            rospy.Timer(rospy.Duration(0.25), self.pallet_selection_server, oneshot=False)
+            rospy.Timer(rospy.Duration(0.25), self.event_selection_server, oneshot=False)
         except Exception as e:
-            print(f"ERROR {e}\n")
+            print(f"[ERROR] {e}\nERROR INITIALIZING ROS\n")
+            pass
+
+    def pallet_selection_server(self, dt):
+        self.event_srv = rospy.Service('event_input', ForkliftEventInput, self.send_pallet_selection)
+        print("Ready to send pallet selection.")
+
+    def event_selection_server(self, dt):
+        self.pallet_srv =rospy.Service('event_selection', ForkliftEventSelection, self.send_event_selection)
+        print("Ready to send event selection.")
+
+    def send_pallet_selection(self, req):
+        self.flag_ask_for_pallet_selection = True
+
+        # wait for gui to flag states
+        while not self.flag_pallet_selected:
+            pass
+        
+        # we're returning a response, so set flag to false so it won't send again
+        self.flag_pallet_selected = False
+
+        return int(self.user_selected_pallet)
+
+    def send_event_selection(self, req):
+        self.flag_ask_for_mode_selection = True
+
+        # wait for gui to flag states
+        while not self.flag_mode_selected:
+            pass
+
+        # we're returning a response, so set flag to false so it won't send again
+        self.flag_mode_selected = False
+
+        return int(self.user_selected_mode)
 
     def find_next_state(self):
         tmp = ''
@@ -180,4 +219,36 @@ class ROS_STATES():
 
     def error(self, error_str):
         self.error_string = "ERROR: " + error_str
-        self.change_state(STATE_SPACE[0])
+
+    def enable_autonomy(self, timeout=None):
+        rospy.wait_for_service('enable_autonomy', timeout=timeout)
+        try:
+            autonomous_mode = rospy.ServiceProxy('enable_autonomy', ForkliftEnableAutonomy)
+            acknowledgement = autonomous_mode(True)
+            if(acknowledgement.success):
+              print("Turning on autonomy")
+
+            return acknowledgement.success
+        except rospy.ServiceException as e:
+            print("Service call failed: %s"%e)
+
+    def disable_autonomy(self, timeout=None):
+        rospy.wait_for_service('enable_autonomy', timeout=timeout)
+        try:
+            autonomous_mode = rospy.ServiceProxy('enable_autonomy', ForkliftEnableAutonomy)
+            acknowledgement = autonomous_mode(False)
+            if(acknowledgement.success):
+              print("Turning off autonomy")
+
+              return acknowledgement.success
+        except rospy.ServiceException as e:
+              print("Service call failed: %s"%e)
+
+    def states_callback(self, msg): # TODO
+        recv_state = str(msg.state)
+        print(f"recieved {recv_state}")
+
+        for i in range(len(STATES_TOPIC_TRANSLATION)):
+            if STATES_TOPIC_TRANSLATION[i] == recv_state:
+                self.change_state(STATE_SPACE[i])
+        return
