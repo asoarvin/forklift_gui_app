@@ -4,12 +4,8 @@ import os
 import subprocess
 import threading
 
-import rospkg
-import rospy
-import states
-from states import STATE_SPACE
-
 from kivy.app import App
+# from kivy.garden.cefpython import CefBrowser, cefpython
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
 import kivy.core.text
@@ -40,6 +36,10 @@ from kivy.uix.gridlayout import GridLayout
 from kivy.uix.textinput import TextInput
 from kivy.uix.popup import Popup
 
+import rospkg
+import rospy
+import states
+from states import STATE_SPACE
 from cyngn_state_manager.srv import ForkliftEventInput, ForkliftEventInputResponse
 from cyngn_state_manager.srv import ForkliftEventSelection
 from cyngn_state_manager.srv import ForkliftEnableAutonomy, ForkliftEnableAutonomyResponse
@@ -55,15 +55,25 @@ class MainWindow(Screen):
 
         self.cyan = (0.0, 1.0, 1.0, 1.0) #CYN-YAN
         self.state_label_colors = (0.0, 1.0, 1.0, 1.0)
+        self.white = (1.0, 1.0, 1.0, 1.0)
+        self.red = (1.0, 0.0, 0.0, 1.0)
+        self.orange = (1.0, (151/255.0), 0.0, 1.0) #Orange
+
         self.STATE_MACHINE = states.ROS_STATES()
-        self.popup_width = 900
-        self.popup_height = 750
+        # print(dir(self.STATE_MACHINE))
+        self.popup_width = 800
+        self.popup_height = 700
         self.popup_frame_width = 800
         self.popup_frame_height = 700
 
         Clock.schedule_interval(self.check_for_mode_popup, 0.25)
         Clock.schedule_interval(self.check_for_pallet_popup, 0.25)
         Clock.schedule_interval(self.check_for_new_state, 0.25)
+
+        rospy.Timer(rospy.Duration(0.25), self.STATE_MACHINE.pallet_selection_server, oneshot=False)
+        rospy.Timer(rospy.Duration(0.25), self.STATE_MACHINE.event_selection_server, oneshot=False)
+        # Clock.schedule_interval(self.STATE_MACHINE.event_selection_server, 0.25)
+        # Clock.schedule_interval(self.STATE_MACHINE.pallet_selection_server, 0.25)
 
         self.load_screen()
 
@@ -131,35 +141,35 @@ class MainWindow(Screen):
         self.console = Label(text = "Initializing...", font_size = 25)
         self.console_container.add_widget(self.console)
 
-        self.pos_title = Label(text = "DATA:", color = self.state_label_colors, font_size=30, halign = "left")
+        self.pos_title = Label(text = "DATA:", color = self.white, font_size=30, halign = "left")
         self.position_container.add_widget(self.pos_title)
 
-        self.position_forks_data = Label(text = f"{self.STATE_MACHINE.get_forks_position_str()}", color = self.state_label_colors)
+        self.position_forks_data = Label(text = f"{self.STATE_MACHINE.get_forks_position_str()}", color = self.white)
         self.position_forks_data.font_size = 25
         self.position_container.add_widget(self.position_forks_data)
 
-        self.position_forks_rel_data = Label(text = f"{self.STATE_MACHINE.get_forks_rel_position_str()}", color = self.state_label_colors)
+        self.position_forks_rel_data = Label(text = f"{self.STATE_MACHINE.get_forks_rel_position_str()}", color = self.white)
         self.position_forks_rel_data.font_size = 25
         self.position_container.add_widget(self.position_forks_rel_data)
 
-        self.position_fork_pocket_error_data = Label(text = f"{self.STATE_MACHINE.get_fork_pocket_error_str()}", color = self.state_label_colors)
+        self.position_fork_pocket_error_data = Label(text = f"{self.STATE_MACHINE.get_fork_pocket_error_str()}", color = self.white)
         self.position_fork_pocket_error_data.font_size = 25
         self.position_container.add_widget(self.position_fork_pocket_error_data)
 
-        self.states_title = Label(text = "STATES:", color = self.state_label_colors, font_size=30, halign = "left")
+        self.states_title = Label(text = "STATES:", color = self.white, font_size=30, halign = "left")
         self.state_container.add_widget(self.states_title)
         
         self.last_state_label_data = Label(text = str(f"LAST = {self.STATE_MACHINE.last_state}"),
-            color = self.state_label_colors,
+            color = self.white,
             font_size = 25
         )
         self.state_container.add_widget(self.last_state_label_data)
 
-        self.curr_state_label_data = Label(text = str(f"CURRENT = {self.STATE_MACHINE.current_state}"), color = self.state_label_colors)
+        self.curr_state_label_data = Label(text = str(f"CURRENT = {self.STATE_MACHINE.current_state}"), color = self.cyan)
         self.curr_state_label_data.font_size = 25
         self.state_container.add_widget(self.curr_state_label_data)
 
-        self.next_state_label_data = Label(text = str(f"NEXT = {self.STATE_MACHINE.next_state}"), color = self.state_label_colors)
+        self.next_state_label_data = Label(text = str(f"NEXT = {self.STATE_MACHINE.next_state}"), color = self.white)
         self.next_state_label_data.font_size = 25
         self.state_container.add_widget(self.next_state_label_data)
 
@@ -267,6 +277,8 @@ class MainWindow(Screen):
 
     def check_for_pallet_popup(self, dt):
         if self.STATE_MACHINE.flag_ask_for_pallet_selection == True or self.STATE_MACHINE.flag_ask_pallet_again == True:
+            self.STATE_MACHINE.flag_ask_for_pallet_selection = False
+            self.STATE_MACHINE.flag_ask_pallet_again = False
             self.choose_pallet_mode = BoxLayout(orientation='vertical', size=(self.popup_frame_width, self.popup_frame_height), size_hint=(1, 1))
 
             self.choose_pallet_label = Label(text = "Select a pallet", font_size = 40)
@@ -274,27 +286,29 @@ class MainWindow(Screen):
 
             for i in reversed(range(self.STATE_MACHINE.pallet_stack_count)):
                 # print(i)
-                b = Button(text=f"Pallet {i+1}", font_size = 50)
+                b = Button(text=f"Pallet {i}", font_size = 50)
                 b.bind(on_press=self.pick_select_callback)
                 self.choose_pallet_mode.add_widget(b)
 
             c = Button(text = "Close", font_size = 50)
             c.bind(on_press=self.close_pick_select_callback)
+            c.background_color = self.red
+            c.color = self.orange
             self.choose_pallet_mode.add_widget(c)
 
             self.choose_pallet_popup = Popup(title ='Select Pallet',
                 title_size = '20sp',
                 content = self.choose_pallet_mode,
-                auto_dismiss=True,
+                auto_dismiss=False,
                 size=(self.popup_width, self.popup_height),
                 size_hint=(None, None)
             )
-            self.STATE_MACHINE.flag_ask_for_pallet_selection = False
-            self.STATE_MACHINE.flag_ask_pallet_again = False
             self.choose_pallet_popup.open()
 
     def check_for_mode_popup(self, dt):
         if self.STATE_MACHINE.flag_ask_for_mode_selection == True or self.STATE_MACHINE.flag_ask_mode_again == True:
+            self.STATE_MACHINE.flag_ask_for_mode_selection = False
+            self.STATE_MACHINE.flag_ask_mode_again = False
             self.choose_autonomy_mode = BoxLayout(orientation='vertical', size=(self.popup_frame_width, self.popup_frame_height), size_hint=(1, 1))
 
             self.autonomy_mode_label = Label(text = "Choose an autonomy mode!", font_size = 40)
@@ -302,6 +316,8 @@ class MainWindow(Screen):
 
             self.close_selection = Button(font_size = 50)
             self.close_selection.text = "Close"
+            self.close_selection.background_color = self.red
+            self.close_selection.color = self.orange
             self.close_selection.bind(on_press = self.close_mode_select_callback)
 
             self.pick_button = Button(font_size = 50)
@@ -328,8 +344,6 @@ class MainWindow(Screen):
                 size=(self.popup_width, self.popup_height),
                 size_hint=(None, None)
             )
-            self.STATE_MACHINE.flag_ask_for_mode_selection = False
-            self.STATE_MACHINE.flag_ask_mode_again = False
             self.autonomy_mode_popup.open()
 
     def settings_button_callback(self,*args):
@@ -348,6 +362,8 @@ class MainWindow(Screen):
     def close_mode_select_callback(self, event):
         self.select_button = Button(text = "Select Mode", font_size = 50)
         self.select_button.bind(on_press = self.select_mode_again_callback)
+        self.select_button.background_color = self.red
+        self.select_button.color = self.orange
         self.autonomy_buttons_header.add_widget(self.select_button)
         self.autonomy_mode_popup.dismiss()
         return
@@ -355,43 +371,45 @@ class MainWindow(Screen):
     def close_pick_select_callback(self, event):
         self.select_button = Button(text = "Select Pallet", font_size = 50)
         self.select_button.bind(on_press = self.select_pallet_again_callback)
+        self.select_button.background_color = self.red
+        self.select_button.color = self.orange
         self.autonomy_buttons_header.add_widget(self.select_button)
         self.choose_pallet_popup.dismiss()
         return
 
     def pick_select_callback(self, event):
         num_stack = self.STATE_MACHINE.pallet_stack_count
-        max_valid = num_stack-2
+        max_valid = num_stack-3
 
         val = int(str(event.text).split(" ")[1])
 
         if val <= max_valid:
             try:
                 self.choose_pallet_label.text = "NOT VALID PALLET..."
+                self.STATE_MACHINE.error_string = "NOT VALID PALLET..."
             except:
                 print('ERROR')
         else:
-            self.STATE_MACHINE.flag_ask_for_pallet_selection = False
+            # self.STATE_MACHINE.flag_ask_for_pallet_selection = False
             self.STATE_MACHINE.user_selected_pallet = val
             self.STATE_MACHINE.flag_pallet_selected = True
             self.choose_pallet_popup.dismiss()
-        return
 
     def mode_select_callback(self, event):
         ''' Will switch from autonomy init to the various mode init states given the entry conditions are met'''
         print("MODE SELECT")
         if event.text == self.pick_button.text:
-            self.STATE_MACHINE.flag_ask_for_mode_selection = False
+            # self.STATE_MACHINE.flag_ask_for_mode_selection = False
             self.STATE_MACHINE.user_selected_mode = 1 # PICK
             self.STATE_MACHINE.flag_mode_selected = True
 
         elif event.text == self.place_ground_button.text:
-            self.STATE_MACHINE.flag_ask_for_mode_selection = False
+            # self.STATE_MACHINE.flag_ask_for_mode_selection = False
             self.STATE_MACHINE.user_selected_mode = 3 # PLACE ON GND
             self.STATE_MACHINE.flag_mode_selected = True
 
         elif event.text == self.place_stack_button.text:
-            self.STATE_MACHINE.flag_ask_for_mode_selection = False
+            # self.STATE_MACHINE.flag_ask_for_mode_selection = False
             self.STATE_MACHINE.user_selected_mode = 2 # PLACE ON STACK
             self.STATE_MACHINE.flag_mode_selected = True
 

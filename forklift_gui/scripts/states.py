@@ -1,7 +1,8 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import threading
 import time
 import yaml
+import subprocess
 try:
     from cyngn_state_manager.srv import ForkliftEventInput, ForkliftEventInputResponse
     from cyngn_state_manager.srv import ForkliftEventSelection, ForkliftEventSelectionResponse
@@ -18,8 +19,8 @@ except Exception as e:
     print(f"ERROR {e}\nERROR IMPORTING ROS")
     pass
 
-# TODO: make this the state manager topic
 FILE_TOPICS_YAML = 'topics.yaml'
+
 TOPIC_STATES = '/current_state'
 TOPIC_OUSTER = '/vehicle/odometry'
 TOPIC_VISIONARY_T = '/vehicle/odometry'
@@ -133,14 +134,17 @@ class ROS_STATES():
     def init_ros(self):
         try:
             # self.ros_thread = threading.Thread(target=lambda: ).start()
-            rospy.init_node('forklift_gui_node', disable_signals=True)
+            rospy.init_node('forklift_gui_node') # , disable_signals=True
 
             rospy.Subscriber(TOPIC_STATES, ForkliftState, self.states_callback)
             self.pub = rospy.Publisher(GUI_PUBLISH_TOPIC, String, queue_size=10)
 
+            # self.event_srv = rospy.Service('event_input', ForkliftEventInput, self.send_pallet_selection)
+            # self.pallet_srv = rospy.Service('event_selection', ForkliftEventSelection, self.send_event_selection)
+
             # schedule ros services servers for event selection and input
-            rospy.Timer(rospy.Duration(0.25), self.pallet_selection_server, oneshot=False)
-            rospy.Timer(rospy.Duration(0.25), self.event_selection_server, oneshot=False)
+            # rospy.Timer(rospy.Duration(0.25), self.pallet_selection_server, oneshot=False)
+            # rospy.Timer(rospy.Duration(0.25), self.event_selection_server, oneshot=False)
         except Exception as e:
             print(f"[ERROR] {e}\nERROR INITIALIZING ROS\n")
             pass
@@ -150,15 +154,14 @@ class ROS_STATES():
         print("Ready to send pallet selection.")
 
     def event_selection_server(self, dt):
-        self.pallet_srv =rospy.Service('event_selection', ForkliftEventSelection, self.send_event_selection)
+        self.pallet_srv = rospy.Service('event_selection', ForkliftEventSelection, self.send_event_selection)
         print("Ready to send event selection.")
 
     def send_pallet_selection(self, req):
         self.flag_ask_for_pallet_selection = True
 
         # wait for gui to flag states
-        while not self.flag_pallet_selected:
-            pass
+        while not self.flag_pallet_selected: pass
         
         # we're returning a response, so set flag to false so it won't send again
         self.flag_pallet_selected = False
@@ -169,8 +172,7 @@ class ROS_STATES():
         self.flag_ask_for_mode_selection = True
 
         # wait for gui to flag states
-        while not self.flag_mode_selected:
-            pass
+        while not self.flag_mode_selected: pass
 
         # we're returning a response, so set flag to false so it won't send again
         self.flag_mode_selected = False
@@ -246,7 +248,7 @@ class ROS_STATES():
 
     def states_callback(self, msg): # TODO
         recv_state = str(msg.state)
-        print(f"recieved {recv_state}")
+        print(f"new state published was {recv_state}")
 
         for i in range(len(STATES_TOPIC_TRANSLATION)):
             if STATES_TOPIC_TRANSLATION[i] == recv_state:
