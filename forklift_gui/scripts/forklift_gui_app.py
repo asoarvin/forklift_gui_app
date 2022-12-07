@@ -54,8 +54,12 @@ class MainWindow(Screen):
         super(MainWindow, self).__init__(**kwargs)
 
         self.cyan = (0.0, 1.0, 1.0, 1.0) #CYN-YAN
-        self.state_label_colors = (0,0,0,0)
+        self.state_label_colors = (0.0, 1.0, 1.0, 1.0)
         self.STATE_MACHINE = states.ROS_STATES()
+        self.popup_width = 900
+        self.popup_height = 750
+        self.popup_frame_width = 800
+        self.popup_frame_height = 700
 
         Clock.schedule_interval(self.check_for_mode_popup, 0.25)
         Clock.schedule_interval(self.check_for_pallet_popup, 0.25)
@@ -263,7 +267,7 @@ class MainWindow(Screen):
 
     def check_for_pallet_popup(self, dt):
         if self.STATE_MACHINE.flag_ask_for_pallet_selection == True or self.STATE_MACHINE.flag_ask_pallet_again == True:
-            self.choose_pallet_mode = BoxLayout(orientation='vertical')
+            self.choose_pallet_mode = BoxLayout(orientation='vertical', size=(self.popup_frame_width, self.popup_frame_height), size_hint=(1, 1))
 
             self.choose_pallet_label = Label(text = "Select a pallet", font_size = 40)
             self.choose_pallet_mode.add_widget(self.choose_pallet_label)
@@ -278,14 +282,20 @@ class MainWindow(Screen):
             c.bind(on_press=self.close_pick_select_callback)
             self.choose_pallet_mode.add_widget(c)
 
-            self.choose_pallet_popup = Popup(title ='Critical', title_size = '20sp', content = self.choose_pallet_mode, auto_dismiss=True)
+            self.choose_pallet_popup = Popup(title ='Select Pallet',
+                title_size = '20sp',
+                content = self.choose_pallet_mode,
+                auto_dismiss=True,
+                size=(self.popup_width, self.popup_height),
+                size_hint=(None, None)
+            )
             self.STATE_MACHINE.flag_ask_for_pallet_selection = False
             self.STATE_MACHINE.flag_ask_pallet_again = False
             self.choose_pallet_popup.open()
 
     def check_for_mode_popup(self, dt):
         if self.STATE_MACHINE.flag_ask_for_mode_selection == True or self.STATE_MACHINE.flag_ask_mode_again == True:
-            self.choose_autonomy_mode = BoxLayout(orientation='vertical')
+            self.choose_autonomy_mode = BoxLayout(orientation='vertical', size=(self.popup_frame_width, self.popup_frame_height), size_hint=(1, 1))
 
             self.autonomy_mode_label = Label(text = "Choose an autonomy mode!", font_size = 40)
             self.choose_autonomy_mode.add_widget(self.autonomy_mode_label)
@@ -293,7 +303,6 @@ class MainWindow(Screen):
             self.close_selection = Button(font_size = 50)
             self.close_selection.text = "Close"
             self.close_selection.bind(on_press = self.close_mode_select_callback)
-            self.choose_autonomy_mode.add_widget(self.close_selection)
 
             self.pick_button = Button(font_size = 50)
             self.pick_button.text = "Pick Pallet"
@@ -310,7 +319,15 @@ class MainWindow(Screen):
             self.place_stack_button.bind(on_press = self.mode_select_callback)
             self.choose_autonomy_mode.add_widget(self.place_stack_button)
 
-            self.autonomy_mode_popup = Popup(title ='Critical', title_size = '20sp', content = self.choose_autonomy_mode, auto_dismiss=True)
+            self.choose_autonomy_mode.add_widget(self.close_selection)
+
+            self.autonomy_mode_popup = Popup(title ='Select Event',
+                title_size = '20sp',
+                content = self.choose_autonomy_mode,
+                auto_dismiss=False,
+                size=(self.popup_width, self.popup_height),
+                size_hint=(None, None)
+            )
             self.STATE_MACHINE.flag_ask_for_mode_selection = False
             self.STATE_MACHINE.flag_ask_mode_again = False
             self.autonomy_mode_popup.open()

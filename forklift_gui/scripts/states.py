@@ -4,7 +4,7 @@ import time
 import yaml
 try:
     from cyngn_state_manager.srv import ForkliftEventInput, ForkliftEventInputResponse
-    from cyngn_state_manager.srv import ForkliftEventSelection
+    from cyngn_state_manager.srv import ForkliftEventSelection, ForkliftEventSelectionResponse
     from cyngn_state_manager.srv import ForkliftEnableAutonomy, ForkliftEnableAutonomyResponse
     from cyngn_state_manager.msg import ForkliftState
 except Exception as e:
