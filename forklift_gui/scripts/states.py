@@ -3,29 +3,24 @@ import threading
 import time
 import yaml
 import subprocess
-try:
-    from cyngn_state_manager.srv import ForkliftEventInput, ForkliftEventInputResponse
-    from cyngn_state_manager.srv import ForkliftEventSelection, ForkliftEventSelectionResponse
-    from cyngn_state_manager.srv import ForkliftEnableAutonomy, ForkliftEnableAutonomyResponse
-    from cyngn_state_manager.msg import ForkliftState
-except Exception as e:
-    print(f"ERROR {e}\nERROR IMPORTING STATE MANAGER")
-    pass
+import os
 
-try:
-    import rospy
-    from std_msgs.msg import String
-except Exception as e:
-    print(f"ERROR {e}\nERROR IMPORTING ROS")
-    pass
+from cyngn_state_manager.srv import ForkliftEventInput, ForkliftEventInputResponse
+from cyngn_state_manager.srv import ForkliftEventSelection, ForkliftEventSelectionResponse
+from cyngn_state_manager.srv import ForkliftEnableAutonomy, ForkliftEnableAutonomyResponse
+from cyngn_state_manager.msg import ForkliftState, ForkliftPalletStackOfInterest #, ForkliftStateRedCode
+# from cyngn_msgs.msg import *#PalletStackAttribInfo, ForkReport, ForkControlFeedback, ForkControlPosition
 
-FILE_TOPICS_YAML = 'topics.yaml'
+import rospy
+from std_msgs.msg import String
+from geometry_msgs.msg import *
 
 TOPIC_STATES = '/current_state'
-TOPIC_OUSTER = '/vehicle/odometry'
-TOPIC_VISIONARY_T = '/vehicle/odometry'
-TOPIC_STW = '/vehicle/odometry'
-TOPIC_TIM = '/vehicle/odometry'
+# "/cyngn_state_manager/state"
+
+TOPIC_PALLET_OF_INTEREST = "/message_translation/pallet_stack_of_interest"
+TOPIC_FORK_CTL_POSITION = "/drive/forkposition"
+TOPIC_FORK_CTL_FEEDBACK = "/drive/forkfeedback"
 
 GUI_PUBLISH_TOPIC = '/forklift_gui'
 
@@ -117,18 +112,6 @@ class ROS_STATES():
         self.fork_initialized = False
         self.pocket_detected = False
 
-        self.pick_CL_error = False
-        self.pick_CL_min_range_reached = False
-
-        self.forks_inserted = False
-        self.forks_lifted = False
-
-        self.placement_zone_clear = False
-        self.placement_complete = False
-
-        self.stack_height_alignment = False
-        self.pallet_aligned = False
-
         self.init_ros()
     
     def init_ros(self):
@@ -137,10 +120,10 @@ class ROS_STATES():
             rospy.init_node('forklift_gui_node', disable_signals=True) # 
 
             rospy.Subscriber(TOPIC_STATES, ForkliftState, self.states_callback)
-            self.pub = rospy.Publisher(GUI_PUBLISH_TOPIC, String, queue_size=10)
-
-            # self.event_srv = rospy.Service('event_input', ForkliftEventInput, self.send_pallet_selection)
-            # self.pallet_srv = rospy.Service('event_selection', ForkliftEventSelection, self.send_event_selection)
+            rospy.Subscriber(TOPIC_PALLET_OF_INTEREST, ForkliftPalletStackOfInterest, self.pallet_callback)
+            # rospy.Subscriber(TOPIC_FORK_CTL_POSITION, ForkControlPosition, self.fork_control_pos_callback)
+            # rospy.Subscriber(TOPIC_FORK_CTL_FEEDBACK, ForkControlFeedback, self.fork_control_feedback_callback)
+            # self.pub = rospy.Publisher(GUI_PUBLISH_TOPIC, String, queue_size=10)
 
             # schedule ros services servers for event selection and input
             rospy.Timer(rospy.Duration(0.25), self.pallet_selection_server, oneshot=False)
@@ -160,11 +143,13 @@ class ROS_STATES():
         print("Ready to send event selection.")
 
     def send_pallet_selection(self, req):
+        print("pallet selection called")
         self.flag_ask_for_pallet_selection = True
 
         # wait for gui to flag states
         while not self.flag_pallet_selected:
-            print(self.flag_pallet_selected)
+            time.sleep(0.1)
+            # print(self.flag_pallet_selected)
             # tmp = 1+2
         
         # we're returning a response, so set flag to false so it won't send again
@@ -173,11 +158,13 @@ class ROS_STATES():
         return int(self.user_selected_pallet)
 
     def send_event_selection(self, req):
+        print("mode selection called")
         self.flag_ask_for_mode_selection = True
 
         # wait for gui to flag states
         while not self.flag_mode_selected:
-            print(self.flag_mode_selected)
+            time.sleep(0.1)
+            # print(self.flag_mode_selected)
 
         # we're returning a response, so set flag to false so it won't send again
         self.flag_mode_selected = False
@@ -251,11 +238,66 @@ class ROS_STATES():
         except rospy.ServiceException as e:
               print("Service call failed: %s"%e)
 
-    def states_callback(self, msg): # TODO
+    def states_callback(self, msg):
         recv_state = str(msg.state)
-        print(f"new state published was {recv_state}")
+        # print(f"new state published was {recv_state}")
 
         for i in range(len(STATES_TOPIC_TRANSLATION)):
             if STATES_TOPIC_TRANSLATION[i] == recv_state:
+                print(f"{STATES_TOPIC_TRANSLATION[i] == recv_state} -- changing state to {STATE_SPACE[i]}")
                 self.change_state(STATE_SPACE[i])
+                return
+
+    ''' FORKLIFTPALLETSTACKOFINTEREST
+    uint64 id
+    uint64 lifecycle
+
+    geometry_msgs/Point32 stack_center_m
+    geometry_msgs/Vector3 velocity_mps
+    geometry_msgs/Point32 dimension_m
+    float32 range_xy_m
+    float32 orientation_rad
+
+    float32[] pallet_pocket_height_m
+    float32[] pallet_pocket_confidence
+    '''
+    def pallet_callback(self, msg):
+        arr_pockets = msg.stack_info.pallet_pocket_height_m
+        arr_pocket_confidence = msg.stack_info.pallet_pocket_confidence
+        self.pallet_stack_count = int(len(arr_pockets))
+        if len(arr_pockets) >= 1:
+            self.pocket_detected = True
+        else:
+            self.pocket_detected = False
+        return
+
+    ''' FORKCONTROLPOSITION.MSG
+            # [-1 .. 1]
+            float32 fork_y_position
+
+            # [0 .. 1]
+            float32 fork_z_position
+
+            # [-1 .. 1]
+            float32 fork_tilt_position
+    '''
+    def fork_control_pos_callback(self, msg):
+        self.fork_y = msg.fork_y_position
+        self.fork_z = msg.fork_z_position
+        self.fork_tilt = msg.fork_tilt_position
+        return
+
+    '''FORKCONTROLFEEDBACK.MSG
+    # [-1 .. 1]
+    float32 pallet_pocket_y_error
+
+    # [-1 .. 1]
+    float32 pallet_pocket_z_error
+
+    # [0 .. 1]
+    float32 distance_to_pallet
+    '''
+    def fork_control_feedback_callback(self, msg):
+        self.fork_pocket_error_y = msg.pallet_pocket_y_error
+        self.fork_pocket_error_z = msg.pallet_pocket_z_error
         return

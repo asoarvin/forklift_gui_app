@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# .6 for web embed (atm)
 
 from __future__ import print_function
 import os
@@ -7,8 +8,6 @@ import threading
 # from cefpython3 import cefpython as cef
 import platform
 import sys
-print (sys.version)
-
 from kivy.app import App
 # from kivy.garden.cefpython import CefBrowser, cefpython
 from kivy.uix.boxlayout import BoxLayout
@@ -72,9 +71,9 @@ class MainWindow(Screen):
         self.popup_frame_width = 800
         self.popup_frame_height = 700
 
-        Clock.schedule_interval(self.check_for_mode_popup, 0.25)
-        Clock.schedule_interval(self.check_for_pallet_popup, 0.25)
-        Clock.schedule_interval(self.check_for_new_state, 0.25)
+        self.start_mode_popup_clock()
+        self.start_pallet_popup_clock()
+        self.start_refresh_clock()
 
         # Clock.schedule_interval(self.STATE_MACHINE.event_selection_server, 0.25)
         # Clock.schedule_interval(self.STATE_MACHINE.pallet_selection_server, 0.25)
@@ -165,17 +164,22 @@ class MainWindow(Screen):
         
         self.last_state_label_data = Label(text = str(f"LAST = {self.STATE_MACHINE.last_state}"),
             color = self.white,
-            font_size = 25
+            font_size = 25,
+            halign="left",
+            valign="middle"
         )
         self.state_container.add_widget(self.last_state_label_data)
 
-        self.curr_state_label_data = Label(text = str(f"CURRENT = {self.STATE_MACHINE.current_state}"), color = self.cyan)
+        self.curr_state_label_data = Label(text = str(f"CURRENT = {self.STATE_MACHINE.current_state}"), size_hint=(1.0, 1.0), color = self.cyan)
         self.curr_state_label_data.font_size = 25
+        self.curr_state_label_data.halign = "left"
+        # self.curr_state_label_data.valign = "middle"
         self.state_container.add_widget(self.curr_state_label_data)
 
         self.next_state_label_data = Label(text = str(f"NEXT = {self.STATE_MACHINE.next_state}"), color = self.white)
-        self.next_state_label_data.font_size = 25
+        self.next_state_label_data.font_size = 20
         self.state_container.add_widget(self.next_state_label_data)
+        
 
         self.data_container.add_widget(self.position_container)
         self.data_container.add_widget(self.state_container)
@@ -186,104 +190,96 @@ class MainWindow(Screen):
         self.content.add_widget(self.data_container)
         self.content.add_widget(self.visual_container)
 
-        # ERROR 
-        if self.STATE_MACHINE.current_state == STATE_SPACE[0]:
-            self.console.text = self.STATE_MACHINE.error_string
-            return
-
-        # MANUAL
-        if self.STATE_MACHINE.current_state == STATE_SPACE[1]:
-            self.console.text = "Choose enable Autonomy to continue..."
-            return
-
-        # AUTONOMY INIT
-        elif self.STATE_MACHINE.current_state == STATE_SPACE[2]:
-            ## USE CLOCK.SCHDULE AUTONOMY POP 
-            return
-
-        # PICK INIT
-        elif self.STATE_MACHINE.current_state == STATE_SPACE[3]:
-            self.console_container.add_widget(self.state_control_continue_button)
-            self.console.text = "Pick Pallet Initializtion... Drive to Pallet and align facing it"
-            return
-        
-        # PICK SELECT
-        elif self.STATE_MACHINE.current_state == STATE_SPACE[4]:
-            self.console.text = "Select a Pallet to Pick (Cannot be a pallet with 2 or more pallet above it)"
-            return
-                    
-        # STATE_PICK_FORK_APPROX_ALIGN
-        elif self.STATE_MACHINE.current_state == STATE_SPACE[5]:
-            if self.STATE_MACHINE.fork_initialized:
-                self.console.text = "Forks initialized..."
-            else:
-                self.console.text = "Waiting for fork initialization..."
-            return
-
-        # STATE_PICK_POCKET_DETECT_ENABLE
-        elif self.STATE_MACHINE.current_state == STATE_SPACE[6]:
-            if self.STATE_MACHINE.pocket_detected:
-                self.console.text = "Found a Pocket!"
-            else:
-                self.console.text = "No pocket detected"
-            return
-
-        # STATE_PICK_CLOSEDLOOP_FORK_ENABLE
-        elif self.STATE_MACHINE.current_state == STATE_SPACE[7]:
-            self.console.text = "SLOWLY: Drive forward"
-            return
-
-        # STATE_PICK_POCKET_DETECT_CLOSEDLOOP_DISABLE
-        elif self.STATE_MACHINE.current_state == STATE_SPACE[8]:
-            self.console.text = "SLOWLY: Drive forward (Wait for forks to be fully inserted)"
-            return
-
-        # STATE_PICK_LIFT_PALLET
-        elif self.STATE_MACHINE.current_state == STATE_SPACE[9]:
-            self.console.text = "Lifting pallet..."
-            return
-        
-        # STATE_PLACEGND_INIT
-        elif self.STATE_MACHINE.current_state == STATE_SPACE[10]:
-            self.console.text = "Initializtion..."
-            return
-
-        # STATE_PLACEGND_PLACE_PALLET
-        elif self.STATE_MACHINE.current_state == STATE_SPACE[11]:
-            self.console.text = "Placing Pallet on the Ground..."
-            return
-        
-        # STATE_PLACESTACK_INIT
-        elif self.STATE_MACHINE.current_state == STATE_SPACE[12]:
-            self.console.text = "Initializtion..."
-            return
-        
-        # STATE_PLACESTACK_FORK_APPROX_ALIGN
-        elif self.STATE_MACHINE.current_state == STATE_SPACE[13]:
-            self.console.text = "Initializing Forks..."
-            return
-        
-        # STATE_PLACESTACK_PALLET_ALIGN
-        elif self.STATE_MACHINE.current_state == STATE_SPACE[14]:
-            self.console.text = "Checking for aligned pallet"
-            return
-        
-        # STATE_PLACESTACK_PLACE_PALLET
-        elif self.STATE_MACHINE.current_state == STATE_SPACE[15]:
-            self.console.text = "Placing pallet on stack..."
-            return
-
     def check_for_new_state(self, dt):
+        # print("[GUI] polling new state")
+        # print(f"[GUI] {self.STATE_MACHINE.new_state}")
         if self.STATE_MACHINE.new_state:
             self.STATE_MACHINE.new_state = False
-            self.remove_widget(self.main_box)
-            self.load_screen()
+            
+            # ERROR 
+            if self.STATE_MACHINE.current_state == STATE_SPACE[0]:
+                self.console.text = self.STATE_MACHINE.error_string
+
+            # MANUAL
+            if self.STATE_MACHINE.current_state == STATE_SPACE[1]:
+                self.console.text = "Choose enable Autonomy to continue..."
+
+            # AUTONOMY INIT
+            elif self.STATE_MACHINE.current_state == STATE_SPACE[2]:
+                self.console.text = "Autonomy Init"
+            
+            # PICK INIT
+            elif self.STATE_MACHINE.current_state == STATE_SPACE[3]:
+                # self.console_container.add_widget(self.state_control_continue_button)
+                self.console.text = "Pick Pallet Initializtion... Drive to Pallet and align facing it"
+
+            # PICK SELECT
+            elif self.STATE_MACHINE.current_state == STATE_SPACE[4]:
+                self.console.text = "Select a Pallet to Pick (Cannot be a pallet with 2 or more pallet above it)"
+
+            # STATE_PICK_FORK_APPROX_ALIGN
+            elif self.STATE_MACHINE.current_state == STATE_SPACE[5]:
+                if self.STATE_MACHINE.fork_initialized:
+                    self.console.text = "Forks initialized..."
+                else:
+                    self.console.text = "Waiting for fork initialization..."
+
+            # STATE_PICK_POCKET_DETECT_ENABLE
+            elif self.STATE_MACHINE.current_state == STATE_SPACE[6]:
+                if self.STATE_MACHINE.pocket_detected:
+                    self.console.text = "Found a Pocket!"
+                else:
+                    self.console.text = "No pocket detected"
+
+            # STATE_PICK_CLOSEDLOOP_FORK_ENABLE
+            elif self.STATE_MACHINE.current_state == STATE_SPACE[7]:
+                self.console.text = "SLOWLY: Drive forward"
+
+            # STATE_PICK_POCKET_DETECT_CLOSEDLOOP_DISABLE
+            elif self.STATE_MACHINE.current_state == STATE_SPACE[8]:
+                self.console.text = "SLOWLY: Drive forward (Wait for forks to be fully inserted)"
+
+            # STATE_PICK_LIFT_PALLET
+            elif self.STATE_MACHINE.current_state == STATE_SPACE[9]:
+                self.console.text = "Lifting pallet..."
+            
+            # STATE_PLACEGND_INIT
+            elif self.STATE_MACHINE.current_state == STATE_SPACE[10]:
+                self.console.text = "Initializtion..."
+
+            # STATE_PLACEGND_PLACE_PALLET
+            elif self.STATE_MACHINE.current_state == STATE_SPACE[11]:
+                self.console.text = "Placing Pallet on the Ground..."
+            
+            # STATE_PLACESTACK_INIT
+            elif self.STATE_MACHINE.current_state == STATE_SPACE[12]:
+                self.console.text = "Initializtion..."
+            
+            # STATE_PLACESTACK_FORK_APPROX_ALIGN
+            elif self.STATE_MACHINE.current_state == STATE_SPACE[13]:
+                self.console.text = "Initializing Forks"
+
+            # STATE_PLACESTACK_PALLET_ALIGN
+            elif self.STATE_MACHINE.current_state == STATE_SPACE[14]:
+                self.console.text = "Checking for aligned pallet"
+            
+            # STATE_PLACESTACK_PLACE_PALLET
+            elif self.STATE_MACHINE.current_state == STATE_SPACE[15]:
+                self.console.text = "Placing pallet on stack..."
+
+        self.position_forks_data.text = f"{self.STATE_MACHINE.get_forks_position_str()}"
+        self.position_forks_rel_data.text = f"{self.STATE_MACHINE.get_forks_rel_position_str()}"
+        self.position_fork_pocket_error_data.text = f"{self.STATE_MACHINE.get_fork_pocket_error_str()}"
+        self.last_state_label_data.text = f"LAST = {self.STATE_MACHINE.last_state}"
+        self.curr_state_label_data.text = f"CURRENT = {self.STATE_MACHINE.current_state}"
+        self.next_state_label_data.text = f"NEXT = {self.STATE_MACHINE.next_state}"
 
     def check_for_pallet_popup(self, dt):
         if self.STATE_MACHINE.flag_ask_for_pallet_selection == True or self.STATE_MACHINE.flag_ask_pallet_again == True:
 
             self.STATE_MACHINE.flag_ask_for_pallet_selection = False
             self.STATE_MACHINE.flag_ask_pallet_again = False
+            # self.stop_refresh_clock()
 
             self.choose_pallet_mode = BoxLayout(orientation='vertical', size=(self.popup_frame_width, self.popup_frame_height), size_hint=(1, 1))
 
@@ -316,6 +312,7 @@ class MainWindow(Screen):
 
             self.STATE_MACHINE.flag_ask_for_mode_selection = False
             self.STATE_MACHINE.flag_ask_mode_again = False
+            # self.stop_refresh_clock()
 
             self.choose_autonomy_mode = BoxLayout(orientation='vertical', size=(self.popup_frame_width, self.popup_frame_height), size_hint=(1, 1))
 
@@ -354,6 +351,34 @@ class MainWindow(Screen):
             )
             self.autonomy_mode_popup.open()
 
+    def start_all_clocks(self):
+        self.start_mode_popup_clock()
+        self.start_pallet_popup_clock()
+        self.start_refresh_clock()
+
+    def stop_all_clocks(self):
+        self.stop_mode_popup_clock()
+        self.stop_pallet_popup_clock()
+        self.stop_refresh_clock()
+
+    def start_pallet_popup_clock(self):
+        self.pallet_clock = Clock.schedule_interval(self.check_for_pallet_popup, 0.25)
+
+    def stop_pallet_popup_clock(self):
+        self.pallet_clock.cancel()
+
+    def start_mode_popup_clock(self):
+        self.mode_clock = Clock.schedule_interval(self.check_for_mode_popup, 0.25)
+
+    def stop_mode_popup_clock(self):
+        self.mode_clock.cancel()
+
+    def start_refresh_clock(self):
+        self.refresh_clock = Clock.schedule_interval(self.check_for_new_state, 0.25)
+
+    def stop_refresh_clock(self):
+        self.refresh_clock.cancel()
+
     def settings_button_callback(self,*args):
         # self.manager.current = 'settings'
         pass
@@ -375,6 +400,7 @@ class MainWindow(Screen):
         self.select_button.color = self.orange
         self.autonomy_buttons_header.add_widget(self.select_button)
         self.autonomy_mode_popup.dismiss()
+        # self.start_refresh_clock()
         return
 
     def close_pick_select_callback(self, event):
@@ -384,6 +410,7 @@ class MainWindow(Screen):
         self.select_button.color = self.orange
         self.autonomy_buttons_header.add_widget(self.select_button)
         self.choose_pallet_popup.dismiss()
+        # self.start_refresh_clock()
         return
 
     def pick_select_callback(self, event):
