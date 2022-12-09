@@ -1,8 +1,13 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+
 from __future__ import print_function
 import os
 import subprocess
 import threading
+# from cefpython3 import cefpython as cef
+import platform
+import sys
+print (sys.version)
 
 from kivy.app import App
 # from kivy.garden.cefpython import CefBrowser, cefpython
@@ -12,6 +17,7 @@ import kivy.core.text
 from kivy.app import App
 from kivy.base import EventLoop
 from kivy.uix.image import Image
+from kivy.uix.image import AsyncImage
 from kivy.clock import Clock
 from kivy.graphics.texture import Texture
 from kivy.uix.boxlayout import BoxLayout
@@ -39,7 +45,7 @@ from kivy.uix.popup import Popup
 import rospkg
 import rospy
 import states
-from states import STATE_SPACE
+from states import *
 from cyngn_state_manager.srv import ForkliftEventInput, ForkliftEventInputResponse
 from cyngn_state_manager.srv import ForkliftEventSelection
 from cyngn_state_manager.srv import ForkliftEnableAutonomy, ForkliftEnableAutonomyResponse
@@ -70,8 +76,6 @@ class MainWindow(Screen):
         Clock.schedule_interval(self.check_for_pallet_popup, 0.25)
         Clock.schedule_interval(self.check_for_new_state, 0.25)
 
-        rospy.Timer(rospy.Duration(0.25), self.STATE_MACHINE.pallet_selection_server, oneshot=False)
-        rospy.Timer(rospy.Duration(0.25), self.STATE_MACHINE.event_selection_server, oneshot=False)
         # Clock.schedule_interval(self.STATE_MACHINE.event_selection_server, 0.25)
         # Clock.schedule_interval(self.STATE_MACHINE.pallet_selection_server, 0.25)
 
@@ -277,8 +281,10 @@ class MainWindow(Screen):
 
     def check_for_pallet_popup(self, dt):
         if self.STATE_MACHINE.flag_ask_for_pallet_selection == True or self.STATE_MACHINE.flag_ask_pallet_again == True:
+
             self.STATE_MACHINE.flag_ask_for_pallet_selection = False
             self.STATE_MACHINE.flag_ask_pallet_again = False
+
             self.choose_pallet_mode = BoxLayout(orientation='vertical', size=(self.popup_frame_width, self.popup_frame_height), size_hint=(1, 1))
 
             self.choose_pallet_label = Label(text = "Select a pallet", font_size = 40)
@@ -307,8 +313,10 @@ class MainWindow(Screen):
 
     def check_for_mode_popup(self, dt):
         if self.STATE_MACHINE.flag_ask_for_mode_selection == True or self.STATE_MACHINE.flag_ask_mode_again == True:
+
             self.STATE_MACHINE.flag_ask_for_mode_selection = False
             self.STATE_MACHINE.flag_ask_mode_again = False
+
             self.choose_autonomy_mode = BoxLayout(orientation='vertical', size=(self.popup_frame_width, self.popup_frame_height), size_hint=(1, 1))
 
             self.autonomy_mode_label = Label(text = "Choose an autonomy mode!", font_size = 40)
@@ -355,7 +363,8 @@ class MainWindow(Screen):
         #     for key, value in self.process_dict.items():
         #       self.process_dict[key].send_signal(subprocess.signal.SIGINT) 
         # except:
-        #     print("Nothing to Kill!")           
+        #     print("Nothing to Kill!") 
+        # self.STATE_MACHINE.kill()          
         App.get_running_app().stop()
         Window.close()
 
@@ -399,17 +408,17 @@ class MainWindow(Screen):
         ''' Will switch from autonomy init to the various mode init states given the entry conditions are met'''
         print("MODE SELECT")
         if event.text == self.pick_button.text:
-            # self.STATE_MACHINE.flag_ask_for_mode_selection = False
+            self.STATE_MACHINE.flag_ask_for_mode_selection = False
             self.STATE_MACHINE.user_selected_mode = 1 # PICK
             self.STATE_MACHINE.flag_mode_selected = True
 
         elif event.text == self.place_ground_button.text:
-            # self.STATE_MACHINE.flag_ask_for_mode_selection = False
+            self.STATE_MACHINE.flag_ask_for_mode_selection = False
             self.STATE_MACHINE.user_selected_mode = 3 # PLACE ON GND
             self.STATE_MACHINE.flag_mode_selected = True
 
         elif event.text == self.place_stack_button.text:
-            # self.STATE_MACHINE.flag_ask_for_mode_selection = False
+            self.STATE_MACHINE.flag_ask_for_mode_selection = False
             self.STATE_MACHINE.user_selected_mode = 2 # PLACE ON STACK
             self.STATE_MACHINE.flag_mode_selected = True
 
@@ -426,10 +435,12 @@ class MainWindow(Screen):
     def enable_autonomy_callback(self, event):
         ''' Enable autonomy using ros service and show on console '''
         self.STATE_MACHINE.enable_autonomy()
+        # Clock.schedule_once(, 0)
         
     def disable_autonomy_callback(self, event):
         ''' Disable autonomy using ros service and show on console '''
         self.STATE_MACHINE.disable_autonomy()
+        # Clock.schedule_once(, 0)
 
 class forklift_guiApp(App):
     def build(self):

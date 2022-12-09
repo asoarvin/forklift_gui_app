@@ -134,7 +134,7 @@ class ROS_STATES():
     def init_ros(self):
         try:
             # self.ros_thread = threading.Thread(target=lambda: ).start()
-            rospy.init_node('forklift_gui_node') # , disable_signals=True
+            rospy.init_node('forklift_gui_node', disable_signals=True) # 
 
             rospy.Subscriber(TOPIC_STATES, ForkliftState, self.states_callback)
             self.pub = rospy.Publisher(GUI_PUBLISH_TOPIC, String, queue_size=10)
@@ -143,8 +143,10 @@ class ROS_STATES():
             # self.pallet_srv = rospy.Service('event_selection', ForkliftEventSelection, self.send_event_selection)
 
             # schedule ros services servers for event selection and input
-            # rospy.Timer(rospy.Duration(0.25), self.pallet_selection_server, oneshot=False)
-            # rospy.Timer(rospy.Duration(0.25), self.event_selection_server, oneshot=False)
+            rospy.Timer(rospy.Duration(0.25), self.pallet_selection_server, oneshot=False)
+            rospy.Timer(rospy.Duration(0.25), self.event_selection_server, oneshot=False)
+
+            # self.thr = threading.Thread(target=lambda: rospy.spin()).start()
         except Exception as e:
             print(f"[ERROR] {e}\nERROR INITIALIZING ROS\n")
             pass
@@ -161,7 +163,9 @@ class ROS_STATES():
         self.flag_ask_for_pallet_selection = True
 
         # wait for gui to flag states
-        while not self.flag_pallet_selected: pass
+        while not self.flag_pallet_selected:
+            print(self.flag_pallet_selected)
+            # tmp = 1+2
         
         # we're returning a response, so set flag to false so it won't send again
         self.flag_pallet_selected = False
@@ -172,7 +176,8 @@ class ROS_STATES():
         self.flag_ask_for_mode_selection = True
 
         # wait for gui to flag states
-        while not self.flag_mode_selected: pass
+        while not self.flag_mode_selected:
+            print(self.flag_mode_selected)
 
         # we're returning a response, so set flag to false so it won't send again
         self.flag_mode_selected = False
@@ -223,7 +228,7 @@ class ROS_STATES():
         self.error_string = "ERROR: " + error_str
 
     def enable_autonomy(self, timeout=None):
-        rospy.wait_for_service('enable_autonomy', timeout=timeout)
+        # rospy.wait_for_service('enable_autonomy', timeout=timeout)
         try:
             autonomous_mode = rospy.ServiceProxy('enable_autonomy', ForkliftEnableAutonomy)
             acknowledgement = autonomous_mode(True)
@@ -235,7 +240,7 @@ class ROS_STATES():
             print("Service call failed: %s"%e)
 
     def disable_autonomy(self, timeout=None):
-        rospy.wait_for_service('enable_autonomy', timeout=timeout)
+        # rospy.wait_for_service('enable_autonomy', timeout=timeout)
         try:
             autonomous_mode = rospy.ServiceProxy('enable_autonomy', ForkliftEnableAutonomy)
             acknowledgement = autonomous_mode(False)
