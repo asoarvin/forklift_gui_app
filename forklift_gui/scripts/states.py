@@ -5,15 +5,19 @@ import yaml
 import subprocess
 import os
 
-from cyngn_state_manager.srv import ForkliftEventInput, ForkliftEventInputResponse
-from cyngn_state_manager.srv import ForkliftEventSelection, ForkliftEventSelectionResponse
-from cyngn_state_manager.srv import ForkliftEnableAutonomy, ForkliftEnableAutonomyResponse
-from cyngn_state_manager.msg import ForkliftState, ForkliftPalletStackOfInterest #, ForkliftStateRedCode
-# from cyngn_msgs.msg import *#PalletStackAttribInfo, ForkReport, ForkControlFeedback, ForkControlPosition
+try:
+    from cyngn_state_manager.srv import ForkliftEventInput, ForkliftEventInputResponse
+    from cyngn_state_manager.srv import ForkliftEventSelection, ForkliftEventSelectionResponse
+    from cyngn_state_manager.srv import ForkliftEnableAutonomy, ForkliftEnableAutonomyResponse
+    from cyngn_state_manager.msg import ForkliftState, ForkliftPalletStackOfInterest
+    from cyngn_msgs.msg import ForkControlPosition, ForkControlFeedback
 
-import rospy
-from std_msgs.msg import String
-from geometry_msgs.msg import *
+    import rospy
+    from std_msgs.msg import String
+    from geometry_msgs.msg import *
+except:
+    print("error importing ROS and/or Cyngn Libraries")
+    pass
 
 TOPIC_STATES = '/current_state'
 # "/cyngn_state_manager/state"
@@ -128,8 +132,6 @@ class ROS_STATES():
             # schedule ros services servers for event selection and input
             rospy.Timer(rospy.Duration(0.25), self.pallet_selection_server, oneshot=False)
             rospy.Timer(rospy.Duration(0.25), self.event_selection_server, oneshot=False)
-
-            # self.thr = threading.Thread(target=lambda: rospy.spin()).start()
         except Exception as e:
             print(f"[ERROR] {e}\nERROR INITIALIZING ROS\n")
             pass
@@ -239,14 +241,17 @@ class ROS_STATES():
               print("Service call failed: %s"%e)
 
     def states_callback(self, msg):
-        recv_state = str(msg.state)
-        # print(f"new state published was {recv_state}")
+        try:
+            recv_state = str(msg.state)
+            # print(f"new state published was {recv_state}")
 
-        for i in range(len(STATES_TOPIC_TRANSLATION)):
-            if STATES_TOPIC_TRANSLATION[i] == recv_state:
-                print(f"{STATES_TOPIC_TRANSLATION[i] == recv_state} -- changing state to {STATE_SPACE[i]}")
-                self.change_state(STATE_SPACE[i])
-                return
+            for i in range(len(STATES_TOPIC_TRANSLATION)):
+                if STATES_TOPIC_TRANSLATION[i] == recv_state:
+                    print(f"{STATES_TOPIC_TRANSLATION[i] == recv_state} -- changing state to {STATE_SPACE[i]}")
+                    self.change_state(STATE_SPACE[i])
+                    return
+        except:
+            print("[GUI ROS] error parsing new state published")
 
     ''' FORKLIFTPALLETSTACKOFINTEREST
     uint64 id
@@ -262,13 +267,22 @@ class ROS_STATES():
     float32[] pallet_pocket_confidence
     '''
     def pallet_callback(self, msg):
-        arr_pockets = msg.stack_info.pallet_pocket_height_m
-        arr_pocket_confidence = msg.stack_info.pallet_pocket_confidence
-        self.pallet_stack_count = int(len(arr_pockets))
-        if len(arr_pockets) >= 1:
-            self.pocket_detected = True
-        else:
-            self.pocket_detected = False
+        try:
+            arr_pockets = msg.stack_info.pallet_pocket_height_m
+            arr_pocket_confidence = msg.stack_info.pallet_pocket_confidence
+            
+            self.fork_rel_x = float(msg.stack_info.stack_center_m.x)
+            self.fork_rel_y = float(msg.stack_info.stack_center_m.y)
+            self.fork_rel_angle = float(msg.stack_info.stack_center_m.z)
+
+            self.pallet_stack_count = int(len(arr_pockets))
+            
+            if len(arr_pockets) >= 1:
+                self.pocket_detected = True
+            else:
+                self.pocket_detected = False
+        except:
+            print("[GUI ROS] error obtaining pallet stack count and other data")
         return
 
     ''' FORKCONTROLPOSITION.MSG
@@ -282,9 +296,12 @@ class ROS_STATES():
             float32 fork_tilt_position
     '''
     def fork_control_pos_callback(self, msg):
-        self.fork_y = msg.fork_y_position
-        self.fork_z = msg.fork_z_position
-        self.fork_tilt = msg.fork_tilt_position
+        try:
+            self.fork_y = msg.fork_y_position
+            self.fork_z = msg.fork_z_position
+            self.fork_tilt = msg.fork_tilt_position
+        except:
+            print("[GUI ROS] error obtaining fork position data")
         return
 
     '''FORKCONTROLFEEDBACK.MSG
@@ -298,6 +315,9 @@ class ROS_STATES():
     float32 distance_to_pallet
     '''
     def fork_control_feedback_callback(self, msg):
-        self.fork_pocket_error_y = msg.pallet_pocket_y_error
-        self.fork_pocket_error_z = msg.pallet_pocket_z_error
+        try:
+            self.fork_pocket_error_y = msg.pallet_pocket_y_error
+            self.fork_pocket_error_z = msg.pallet_pocket_z_error
+        except:
+            print("[GUI ROS] error obtaining pocket error (y/z)")
         return

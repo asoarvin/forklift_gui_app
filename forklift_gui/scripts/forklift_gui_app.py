@@ -40,14 +40,19 @@ from kivy.properties import ListProperty, StringProperty, ObjectProperty
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.textinput import TextInput
 from kivy.uix.popup import Popup
-
-import rospkg
-import rospy
 import states
 from states import *
-from cyngn_state_manager.srv import ForkliftEventInput, ForkliftEventInputResponse
-from cyngn_state_manager.srv import ForkliftEventSelection
-from cyngn_state_manager.srv import ForkliftEnableAutonomy, ForkliftEnableAutonomyResponse
+
+try:
+    import rospkg
+    import rospy
+    from cyngn_state_manager.srv import ForkliftEventInput, ForkliftEventInputResponse
+    from cyngn_state_manager.srv import ForkliftEventSelection
+    from cyngn_state_manager.srv import ForkliftEnableAutonomy, ForkliftEnableAutonomyResponse
+except:
+    print("error importing ROS and/or Cyngn libraries")
+    pass
+
 
 class ScreenManagement(ScreenManager):
     def __init__(self, **kwargs):
@@ -84,14 +89,20 @@ class MainWindow(Screen):
 
         # HEADER ELEMENTS
         ##########################
-
-        self.rospack = rospkg.RosPack()
-        package_path = self.rospack.get_path('forklift_gui')
-        
+        try:
+            self.rospack = rospkg.RosPack()
+            package_path = self.rospack.get_path('forklift_gui')
+        except:
+            package_path = os.path.join(os.getcwd(), 'forklift_gui/scripts/images')
+            pass
         cyngn_logo_path = os.path.join(package_path, "cyngn_logo.png")
         back_icon_path = os.path.join(package_path,"back.png")
         close_icon_path = os.path.join(package_path,"close.png")
         settings_icon_path = os.path.join(package_path,"settings.png")
+        self.rd_light = os.path.join(package_path,"red-light.png")
+        self.yw_light = os.path.join(package_path,"yellow-light.png")
+        self.gn_light = os.path.join(package_path,"green-light.png")
+        # print(self.rd_light)
         
         self.header = BoxLayout(orientation ='horizontal', size_hint_y = None, height = 150)
         self.cyngn_logo = Image(source = cyngn_logo_path, size_hint_y = 0.8, allow_stretch = True)
@@ -140,6 +151,9 @@ class MainWindow(Screen):
         self.position_container = BoxLayout(orientation ='vertical')
         self.console_container = BoxLayout(orientation ='horizontal', size_hint_y = 0.25)
         self.camera_container = BoxLayout(orientation ='horizontal', size_hint_y = 0.75)
+
+        self.traffic_light = Image(source = self.gn_light)
+        self.camera_container.add_widget(self.traffic_light)
 
         self.console = Label(text = "Initializing...", font_size = 25)
         self.console_container.add_widget(self.console)
@@ -378,6 +392,10 @@ class MainWindow(Screen):
 
     def stop_refresh_clock(self):
         self.refresh_clock.cancel()
+
+    def change_traffic_light_color(self, new_source):
+        self.traffic_light.source = new_source
+        self.traffic_light.reload()
 
     def settings_button_callback(self,*args):
         # self.manager.current = 'settings'

@@ -165,9 +165,11 @@ catkin_install_python(PROGRAMS
    scripts/states.py
    images/cyngn_logo.png
    images/back.png
-    images/close.png
-    images/settings.png
-   
+   images/close.png
+   images/settings.png
+   images/red-light.png
+   images/yellow-light.png
+   images/green-light.png 
    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
  )
 
@@ -198,6 +200,9 @@ catkin_install_python(PROGRAMS
     images/back.png
     images/close.png
     images/settings.png
+    images/red-light.png
+    images/yellow-light.png
+    images/green-light.png 
 #   # myfile2
     DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
