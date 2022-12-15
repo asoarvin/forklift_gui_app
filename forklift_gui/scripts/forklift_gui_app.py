@@ -77,9 +77,7 @@ class MainWindow(Screen):
         self.popup_frame_width = 800
         self.popup_frame_height = 700
 
-        self.start_mode_popup_clock()
-        self.start_pallet_popup_clock()
-        self.start_refresh_clock()
+        self.start_all_clocks()
 
         # Clock.schedule_interval(self.STATE_MACHINE.event_selection_server, 0.25)
         # Clock.schedule_interval(self.STATE_MACHINE.pallet_selection_server, 0.25)
@@ -145,57 +143,71 @@ class MainWindow(Screen):
         self.add_widget(self.main_box)
 
     def load_content(self):
-        self.data_container = BoxLayout(orientation ='vertical', size_hint_x = 0.25)
-        self.visual_container = BoxLayout(orientation ='vertical', size_hint_x = 0.75)
+        self.info_ts = 20
+        self.title_ts = 30
 
-        self.state_container = BoxLayout(orientation ='vertical')
-        self.position_container = BoxLayout(orientation ='vertical')
-        self.console_container = BoxLayout(orientation ='horizontal', size_hint_y = 0.25)
-        self.camera_container = BoxLayout(orientation ='horizontal', size_hint_y = 0.75)
+        self.data_container = BoxLayout(orientation ='vertical', size_hint_x = 0.4)
+        self.visual_container = BoxLayout(orientation ='vertical', size_hint_x = 0.6)
 
-        self.traffic_light = Image(source = self.gn_light)
-        self.camera_container.add_widget(self.traffic_light)
+        self.state_container = BoxLayout(orientation ='vertical', size_hint_y = 0.33)
+        self.position_container = BoxLayout(orientation ='vertical', size_hint_y = 0.66)
+        self.console_container = BoxLayout(orientation ='horizontal', size_hint_y = 0.2)
+        self.camera_container = BoxLayout(orientation ='horizontal', size_hint_y = 0.8)
 
-        self.console = Label(text = "Initializing...", font_size = 25)
+        self.traffic_light = Image(source = self.yw_light)
+
+        self.console = Label(text = "Initializing GUI", font_size = self.info_ts)
+        self.confirm_button = Button(text = "CONFIRM", size_hint_x = 0.75, font_size=self.title_ts)
+        self.confirm_button.bind(on_press = self.confirm_callback)
         self.console_container.add_widget(self.console)
 
-        self.pos_title = Label(text = "DATA:", color = self.white, font_size=30, halign = "left")
-        self.position_container.add_widget(self.pos_title)
+        self.pocket_count_data = Label(
+            text = f"Pallet Count = {self.STATE_MACHINE.get_pallet_stack_count()}",
+            color = self.cyan,
+            font_size = self.info_ts,
+            halign = "left"
+        )
+        self.position_container.add_widget(self.pocket_count_data)
 
-        self.position_forks_data = Label(text = f"{self.STATE_MACHINE.get_forks_position_str()}", color = self.white)
-        self.position_forks_data.font_size = 25
+        self.pocket_heights_data = Label(
+            text = f"{self.STATE_MACHINE.get_pocket_heights_str()}",
+            font_size = self.info_ts,
+            color = self.cyan, 
+            size_hint = (1, 1),
+            halign = 'left'
+        )
+        self.position_container.add_widget(self.pocket_heights_data)
+
+        self.position_forks_data = Label(text = f"{self.STATE_MACHINE.get_forks_position_str()}", color = self.white, halign = 'left')
+        self.position_forks_data.font_size = self.info_ts
         self.position_container.add_widget(self.position_forks_data)
 
         self.position_forks_rel_data = Label(text = f"{self.STATE_MACHINE.get_forks_rel_position_str()}", color = self.white)
-        self.position_forks_rel_data.font_size = 25
+        self.position_forks_rel_data.font_size = self.info_ts
         self.position_container.add_widget(self.position_forks_rel_data)
 
         self.position_fork_pocket_error_data = Label(text = f"{self.STATE_MACHINE.get_fork_pocket_error_str()}", color = self.white)
-        self.position_fork_pocket_error_data.font_size = 25
+        self.position_fork_pocket_error_data.font_size = self.info_ts
         self.position_container.add_widget(self.position_fork_pocket_error_data)
-
-        self.states_title = Label(text = "STATES:", color = self.white, font_size=30, halign = "left")
-        self.state_container.add_widget(self.states_title)
         
-        self.last_state_label_data = Label(text = str(f"LAST = {self.STATE_MACHINE.last_state}"),
+        self.last_state_label_data = Label(text = str(f"LAST STATE = {self.STATE_MACHINE.last_state}"),
             color = self.white,
-            font_size = 25,
+            font_size = self.info_ts,
             halign="left",
             valign="middle"
         )
         self.state_container.add_widget(self.last_state_label_data)
 
-        self.curr_state_label_data = Label(text = str(f"CURRENT = {self.STATE_MACHINE.current_state}"), size_hint=(1.0, 1.0), color = self.cyan)
-        self.curr_state_label_data.font_size = 25
+        self.curr_state_label_data = Label(text = str(f"CURRENT STATE = {self.STATE_MACHINE.current_state}"), size_hint=(1.0, 1.0), color = self.cyan)
+        self.curr_state_label_data.font_size = self.info_ts
         self.curr_state_label_data.halign = "left"
         # self.curr_state_label_data.valign = "middle"
         self.state_container.add_widget(self.curr_state_label_data)
 
-        self.next_state_label_data = Label(text = str(f"NEXT = {self.STATE_MACHINE.next_state}"), color = self.white)
-        self.next_state_label_data.font_size = 20
+        self.next_state_label_data = Label(text = str(f"NEXT STATE = {self.STATE_MACHINE.next_state}"), color = self.white)
+        self.next_state_label_data.font_size = self.info_ts
         self.state_container.add_widget(self.next_state_label_data)
         
-
         self.data_container.add_widget(self.position_container)
         self.data_container.add_widget(self.state_container)
 
@@ -252,7 +264,19 @@ class MainWindow(Screen):
 
             # STATE_PICK_POCKET_DETECT_CLOSEDLOOP_DISABLE
             elif self.STATE_MACHINE.current_state == STATE_SPACE[8]:
-                self.console.text = "SLOWLY: Drive forward (Wait for forks to be fully inserted)"
+                self.camera_container.add_widget(self.traffic_light)
+
+                if self.STATE_MACHINE.show_green_light:
+                    self.console.text = "SLOWLY: Drive forward to insert forks"
+                    self.change_traffic_light_color(self.gn_light)
+
+                if self.STATE_MACHINE.show_yellow_light:
+                    self.console.text = "CAREFUL: approaching fully inserted, continue until red light!"
+                    self.change_traffic_light_color(self.yw_light)
+
+                if self.STATE_MACHINE.show_red_light:
+                    self.console.text = "STOP: check that forks are fully inserted!"
+                    self.change_traffic_light_color(self.rd_light)
 
             # STATE_PICK_LIFT_PALLET
             elif self.STATE_MACHINE.current_state == STATE_SPACE[9]:
@@ -282,6 +306,8 @@ class MainWindow(Screen):
             elif self.STATE_MACHINE.current_state == STATE_SPACE[15]:
                 self.console.text = "Placing pallet on stack..."
 
+        self.pocket_count_data.text = f"Pallet Count = {self.STATE_MACHINE.get_pallet_stack_count()}"
+        self.pocket_heights_data.text = f"{self.STATE_MACHINE.get_pocket_heights_str()}"
         self.position_forks_data.text = f"{self.STATE_MACHINE.get_forks_position_str()}"
         self.position_forks_rel_data.text = f"{self.STATE_MACHINE.get_forks_rel_position_str()}"
         self.position_fork_pocket_error_data.text = f"{self.STATE_MACHINE.get_fork_pocket_error_str()}"
@@ -366,15 +392,23 @@ class MainWindow(Screen):
             )
             self.autonomy_mode_popup.open()
 
+    def check_for_confirm_service(self, dt):
+        if self.STATE_MACHINE.flag_ask_for_confirm:
+            self.STATE_MACHINE.flag_ask_for_confirm = False
+            assert(self.STATE_MACHINE.flag_ask_for_confirm == False)
+            self.console_container.add_widget(self.confirm_button)
+
     def start_all_clocks(self):
         self.start_mode_popup_clock()
         self.start_pallet_popup_clock()
         self.start_refresh_clock()
+        self.start_confirm_clock()
 
     def stop_all_clocks(self):
         self.stop_mode_popup_clock()
         self.stop_pallet_popup_clock()
         self.stop_refresh_clock()
+        self.stop_confirm_clock()
 
     def start_pallet_popup_clock(self):
         self.pallet_clock = Clock.schedule_interval(self.check_for_pallet_popup, 0.25)
@@ -393,6 +427,12 @@ class MainWindow(Screen):
 
     def stop_refresh_clock(self):
         self.refresh_clock.cancel()
+
+    def start_confirm_clock(self):
+        self.confirm_clock = Clock.schedule_interval(self.check_for_confirm_service, 0.25)
+
+    def stop_confirm_clock(self):
+        self.confirm_clock.cancel()
 
     def change_traffic_light_color(self, new_source):
         self.traffic_light.source = new_source
@@ -481,12 +521,15 @@ class MainWindow(Screen):
     def enable_autonomy_callback(self, event):
         ''' Enable autonomy using ros service and show on console '''
         self.STATE_MACHINE.enable_autonomy()
-        # Clock.schedule_once(, 0)
         
     def disable_autonomy_callback(self, event):
         ''' Disable autonomy using ros service and show on console '''
         self.STATE_MACHINE.disable_autonomy()
-        # Clock.schedule_once(, 0)
+
+    def confirm_callback(self, event):
+        self.console_container.remove_widget(self.confirm_button)
+        self.camera_container.remove_widget(self.traffic_light)
+        self.STATE_MACHINE.flag_confirmed = True
 
 class forklift_guiApp(App):
     def build(self):
