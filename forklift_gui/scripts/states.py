@@ -10,21 +10,20 @@ try:
     from cyngn_state_manager.srv import ForkliftEventSelection, ForkliftEventSelectionResponse
     from cyngn_state_manager.srv import ForkliftEnableAutonomy, ForkliftEnableAutonomyResponse
     from cyngn_state_manager.msg import ForkliftState, ForkliftPalletStackOfInterest
-    from cyngn_msgs.msg import ForkControlPosition, ForkControlFeedback
+    from lev_msgs.msg import ForkControlPosition, ForkControlFeedback, ForkReport
 
     import rospy
     from std_msgs.msg import String
     from geometry_msgs.msg import *
-except:
-    print("error importing ROS and/or Cyngn Libraries")
+except Exception as e:
+    print(e)
+    print("STATE error importing ROS and/or Cyngn Libraries")
     pass
 
-TOPIC_STATES = '/current_state'
-# "/cyngn_state_manager/state"
-
+TOPIC_STATES = '/current_state' # "/cyngn_state_manager/state"
 TOPIC_PALLET_OF_INTEREST = "/message_translation/pallet_stack_of_interest"
-TOPIC_FORK_CTL_POSITION = "/drive/forkposition"
-TOPIC_FORK_CTL_FEEDBACK = "/drive/forkfeedback"
+TOPIC_FORK_CTL_POSITION = "/cyngn/dbw/fork/status"
+TOPIC_FORK_CTL_FEEDBACK = "/cyngn/dbw/fork/control_closed_loop"
 
 GUI_PUBLISH_TOPIC = '/forklift_gui'
 
@@ -104,8 +103,6 @@ class ROS_STATES():
         # Fork/Pocket Error
         self.fork_pocket_error_y = 0
         self.fork_pocket_error_z = 0
-
-        # Stack Info
         self.stack_height = 0
         self.pallet_stack_count = 4 # TODO
 
@@ -125,8 +122,9 @@ class ROS_STATES():
 
             rospy.Subscriber(TOPIC_STATES, ForkliftState, self.states_callback)
             rospy.Subscriber(TOPIC_PALLET_OF_INTEREST, ForkliftPalletStackOfInterest, self.pallet_callback)
-            # rospy.Subscriber(TOPIC_FORK_CTL_POSITION, ForkControlPosition, self.fork_control_pos_callback)
-            # rospy.Subscriber(TOPIC_FORK_CTL_FEEDBACK, ForkControlFeedback, self.fork_control_feedback_callback)
+            rospy.Subscriber(TOPIC_FORK_CTL_POSITION, ForkReport, self.fork_control_pos_callback)
+            rospy.Subscriber(TOPIC_FORK_CTL_FEEDBACK, ForkControlFeedback, self.fork_control_feedback_callback)
+            # rospy.Subscriber(TOPIC_FORK_POS, ForkReport, self.fork_position_callback)
             # self.pub = rospy.Publisher(GUI_PUBLISH_TOPIC, String, queue_size=10)
 
             # schedule ros services servers for event selection and input
@@ -271,9 +269,9 @@ class ROS_STATES():
             arr_pockets = msg.stack_info.pallet_pocket_height_m
             arr_pocket_confidence = msg.stack_info.pallet_pocket_confidence
             
-            self.fork_rel_x = float(msg.stack_info.stack_center_m.x)
-            self.fork_rel_y = float(msg.stack_info.stack_center_m.y)
-            self.fork_rel_angle = float(msg.stack_info.stack_center_m.z)
+            self.fork_rel_x = round(float(msg.stack_info.stack_center_m.x), 2)
+            self.fork_rel_y = round(float(msg.stack_info.stack_center_m.y), 2)
+            self.fork_rel_angle = round(float(msg.stack_info.stack_center_m.z), 2)
 
             self.pallet_stack_count = int(len(arr_pockets))
             

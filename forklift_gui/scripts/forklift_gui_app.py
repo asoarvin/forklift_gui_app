@@ -49,7 +49,8 @@ try:
     from cyngn_state_manager.srv import ForkliftEventInput, ForkliftEventInputResponse
     from cyngn_state_manager.srv import ForkliftEventSelection
     from cyngn_state_manager.srv import ForkliftEnableAutonomy, ForkliftEnableAutonomyResponse
-except:
+except Exception as e:
+    print(e)
     print("error importing ROS and/or Cyngn libraries")
     pass
 
