@@ -64,6 +64,23 @@ class MainWindow(Screen):
     def __init__(self, **kwargs):
         super(MainWindow, self).__init__(**kwargs)
 
+        try:
+            self.rospack = rospkg.RosPack()
+            package_path = self.rospack.get_path('forklift_gui')
+        except:
+            package_path = os.path.join(os.getcwd(), 'forklift_gui/scripts/images')
+            pass
+        
+        # sources for images
+        self.cyngn_logo_path = os.path.join(package_path, "cyngn_logo.png")
+        self.back_icon_path = os.path.join(package_path,"back.png")
+        self.close_icon_path = os.path.join(package_path,"close.png")
+        self.settings_icon_path = os.path.join(package_path,"settings.png")
+        self.rd_light = os.path.join(package_path,"red-light.png")
+        self.yw_light = os.path.join(package_path,"yellow-light.png")
+        self.gn_light = os.path.join(package_path,"green-light.png") 
+
+        # Colors!
         self.cyan = (0.0, 1.0, 1.0, 1.0) #CYN-YAN
         self.state_label_colors = (0.0, 1.0, 1.0, 1.0)
         self.white = (1.0, 1.0, 1.0, 1.0)
@@ -71,44 +88,49 @@ class MainWindow(Screen):
         self.orange = (1.0, (151/255.0), 0.0, 1.0) #Orange
 
         self.STATE_MACHINE = states.ROS_STATES()
-        # print(dir(self.STATE_MACHINE))
+        
+        # Popup Dimensions
         self.popup_width = 800
         self.popup_height = 700
         self.popup_frame_width = 800
         self.popup_frame_height = 700
 
+        # Text Sizes
+        self.info_ts = 20
+        self.title_ts = 30
+
         self.start_all_clocks()
-
-        # Clock.schedule_interval(self.STATE_MACHINE.event_selection_server, 0.25)
-        # Clock.schedule_interval(self.STATE_MACHINE.pallet_selection_server, 0.25)
-
         self.load_screen()
 
-    def load_screen(self):
-
+    def load_screen(self): 
         # HEADER ELEMENTS
         ##########################
-        try:
-            self.rospack = rospkg.RosPack()
-            package_path = self.rospack.get_path('forklift_gui')
-        except:
-            package_path = os.path.join(os.getcwd(), 'forklift_gui/scripts/images')
-            pass
-        cyngn_logo_path = os.path.join(package_path, "cyngn_logo.png")
-        back_icon_path = os.path.join(package_path,"back.png")
-        close_icon_path = os.path.join(package_path,"close.png")
-        settings_icon_path = os.path.join(package_path,"settings.png")
-        self.rd_light = os.path.join(package_path,"red-light.png")
-        self.yw_light = os.path.join(package_path,"yellow-light.png")
-        self.gn_light = os.path.join(package_path,"green-light.png")
-        # print(self.rd_light)
-        
         self.header = BoxLayout(orientation ='horizontal', size_hint_y = None, height = 150)
-        self.cyngn_logo = Image(source = cyngn_logo_path, size_hint_y = 0.8, allow_stretch = True)
-        self.label = Label(text=str("Cyngn Forklift GUI"), font_size = '45dp', size_hint = (1, 0.8))
-        self.settings_button = Button(height = 100, width = 100,  size_hint = (None, None), background_normal = settings_icon_path )
+
+        self.cyngn_logo = Image(
+            source = self.cyngn_logo_path,
+            size_hint_y = 0.8,
+            allow_stretch = True
+        )
+
+        self.label = Label(
+            text=str("Cyngn Forklift GUI"),
+            font_size = '45dp',
+            size_hint = (1, 0.8)
+        )
+
+        self.settings_button = Button(
+            height = 100, width = 100,
+            size_hint = (None, None),
+            background_normal = self.settings_icon_path
+        )
         self.settings_button.bind(on_press = self.settings_button_callback)
-        self.close_button = Button( height = 100, width = 100,  size_hint = (None, None), background_normal = close_icon_path )
+
+        self.close_button = Button(
+            height = 100, width = 100,
+            size_hint = (None, None),
+            background_normal = self.close_icon_path
+        )
         self.close_button.bind(on_press = self.close_button_callback)
 
         self.header.add_widget(self.cyngn_logo)
@@ -120,9 +142,9 @@ class MainWindow(Screen):
         ########################## 
 
         self.autonomy_buttons_header = BoxLayout(orientation ='horizontal', padding = 10, size_hint_y = None, height = 150)
-        self.enable_autonomy_button = Button(text = "Autonomy", font_size = 50)
+        self.enable_autonomy_button = Button(text = "AUTONOMY", font_size = 50)
         self.enable_autonomy_button.bind(on_press = self.enable_autonomy_callback)
-        self.disable_autonomy_button = Button(text = "Manual", font_size = 50)
+        self.disable_autonomy_button = Button(text = "MANUAL", font_size = 50)
         self.disable_autonomy_button.bind(on_press = self.disable_autonomy_callback)
 
         self.autonomy_buttons_header.add_widget(self.enable_autonomy_button)
@@ -134,8 +156,7 @@ class MainWindow(Screen):
         self.load_content()
 
         # CREATING THE LAYOUT
-        ##########################  
-
+        ##########################
         self.main_box = BoxLayout(orientation ='vertical')
         self.main_box.add_widget(self.header)
         self.main_box.add_widget(self.content)
@@ -143,73 +164,107 @@ class MainWindow(Screen):
         self.add_widget(self.main_box)
 
     def load_content(self):
-        self.info_ts = 20
-        self.title_ts = 30
-
-        self.data_container = BoxLayout(orientation ='vertical', size_hint_x = 0.4)
-        self.visual_container = BoxLayout(orientation ='vertical', size_hint_x = 0.6)
-
-        self.state_container = BoxLayout(orientation ='vertical', size_hint_y = 0.33)
-        self.position_container = BoxLayout(orientation ='vertical', size_hint_y = 0.66)
+        #########################
+        ### Layout Containers ###
+        #########################
+        self.data_container = BoxLayout(orientation ='vertical', size_hint_x = 0.33)
+        self.visual_container = BoxLayout(orientation ='vertical', size_hint_x = 0.66)
+        # self.state_container = BoxLayout(orientation ='vertical', size_hint_y = 0.33)
+        # self.position_container = BoxLayout(orientation ='vertical', size_hint_y = 0.66)
         self.console_container = BoxLayout(orientation ='horizontal', size_hint_y = 0.2)
         self.camera_container = BoxLayout(orientation ='horizontal', size_hint_y = 0.8)
 
-        self.traffic_light = Image(source = self.yw_light)
 
-        self.console = Label(text = "Initializing GUI", font_size = self.info_ts)
-        self.confirm_button = Button(text = "CONFIRM", size_hint_x = 0.75, font_size=self.title_ts)
+        ###################
+        ### UI Elements ###
+        ###################
+        self.confirm_button = Button(
+            text = "CONFIRM",
+            size_hint_x = 0.75,
+            font_size=self.title_ts
+        )
         self.confirm_button.bind(on_press = self.confirm_callback)
+
+        self.traffic_light = Image(
+            source = self.yw_light
+        )
+        # self.video_stream = Texture(colorfmt='rgb', mipmap=True, callback=self.stream_callback)
+
+        self.console = Label(
+            text = "Initializing GUI",
+            font_size = self.info_ts
+        )
         self.console_container.add_widget(self.console)
 
         self.pocket_count_data = Label(
             text = f"Pallet Count = {self.STATE_MACHINE.get_pallet_stack_count()}",
             color = self.cyan,
-            font_size = self.info_ts,
-            halign = "left"
+            font_size = self.info_ts
         )
-        self.position_container.add_widget(self.pocket_count_data)
+        self.pocket_count_data.bind(size = self.pocket_count_data.setter('text_size'))
 
         self.pocket_heights_data = Label(
             text = f"{self.STATE_MACHINE.get_pocket_heights_str()}",
-            font_size = self.info_ts,
-            color = self.cyan, 
-            size_hint = (1, 1),
-            halign = 'left'
+            color = self.cyan,
+            font_size = self.info_ts
         )
-        self.position_container.add_widget(self.pocket_heights_data)
+        self.pocket_heights_data.bind(size = self.pocket_heights_data.setter('text_size'))
 
-        self.position_forks_data = Label(text = f"{self.STATE_MACHINE.get_forks_position_str()}", color = self.white, halign = 'left')
-        self.position_forks_data.font_size = self.info_ts
-        self.position_container.add_widget(self.position_forks_data)
-
-        self.position_forks_rel_data = Label(text = f"{self.STATE_MACHINE.get_forks_rel_position_str()}", color = self.white)
-        self.position_forks_rel_data.font_size = self.info_ts
-        self.position_container.add_widget(self.position_forks_rel_data)
-
-        self.position_fork_pocket_error_data = Label(text = f"{self.STATE_MACHINE.get_fork_pocket_error_str()}", color = self.white)
-        self.position_fork_pocket_error_data.font_size = self.info_ts
-        self.position_container.add_widget(self.position_fork_pocket_error_data)
-        
-        self.last_state_label_data = Label(text = str(f"LAST STATE = {self.STATE_MACHINE.last_state}"),
+        self.position_forks_data = Label(
+            text = f"{self.STATE_MACHINE.get_forks_position_str()}",
             color = self.white,
-            font_size = self.info_ts,
-            halign="left",
-            valign="middle"
+            font_size = self.info_ts
         )
-        self.state_container.add_widget(self.last_state_label_data)
+        self.position_forks_data.bind(size = self.position_forks_data.setter('text_size'))
 
-        self.curr_state_label_data = Label(text = str(f"CURRENT STATE = {self.STATE_MACHINE.current_state}"), size_hint=(1.0, 1.0), color = self.cyan)
-        self.curr_state_label_data.font_size = self.info_ts
-        self.curr_state_label_data.halign = "left"
-        # self.curr_state_label_data.valign = "middle"
-        self.state_container.add_widget(self.curr_state_label_data)
+        self.position_forks_rel_data = Label(
+            text = f"{self.STATE_MACHINE.get_forks_rel_position_str()}",
+            color = self.white,
+            font_size = self.info_ts
+        )
+        self.position_forks_rel_data.bind(size = self.position_forks_rel_data.setter('text_size'))
 
-        self.next_state_label_data = Label(text = str(f"NEXT STATE = {self.STATE_MACHINE.next_state}"), color = self.white)
-        self.next_state_label_data.font_size = self.info_ts
-        self.state_container.add_widget(self.next_state_label_data)
+        self.position_fork_pocket_error_data = Label(
+            text = f"{self.STATE_MACHINE.get_fork_pocket_error_str()}",
+            color = self.white,
+            font_size = self.info_ts
+        )
+        self.position_fork_pocket_error_data.bind(size = self.position_fork_pocket_error_data.setter('text_size'))
         
-        self.data_container.add_widget(self.position_container)
-        self.data_container.add_widget(self.state_container)
+        self.last_state_label_data = Label(
+            text = str(f"LAST STATE = {self.STATE_MACHINE.last_state}"),
+            color = self.white,
+            font_size = self.info_ts
+        )
+        self.last_state_label_data.bind(size = self.last_state_label_data.setter('text_size'))
+
+        self.curr_state_label_data = Label(
+            text = str(f"CURRENT STATE = {self.STATE_MACHINE.current_state}"),
+            color = self.cyan,
+            font_size = self.info_ts
+        )
+        self.curr_state_label_data.bind(size = self.curr_state_label_data.setter('text_size'))
+        
+        self.next_state_label_data = Label(
+            text = str(f"NEXT STATE = {self.STATE_MACHINE.next_state}"),
+            color = self.white,
+            font_size = self.info_ts
+        )
+        # self.state_container.add_widget(self.next_state_label_data)
+        
+        # self.data_container.add_widget(self.position_container)
+        # self.data_container.add_widget(self.state_container)
+
+        ###################################
+        ### Arranging within Containers ###
+        ###################################
+        self.data_container.add_widget(self.curr_state_label_data)
+        self.data_container.add_widget(self.last_state_label_data)
+        self.data_container.add_widget(self.pocket_count_data)
+        self.data_container.add_widget(self.pocket_heights_data)
+        self.data_container.add_widget(self.position_forks_data)
+        self.data_container.add_widget(self.position_forks_rel_data)
+        self.data_container.add_widget(self.position_fork_pocket_error_data)
 
         self.visual_container.add_widget(self.camera_container)
         self.visual_container.add_widget(self.console_container)
@@ -225,15 +280,19 @@ class MainWindow(Screen):
             
             # ERROR 
             if self.STATE_MACHINE.current_state == STATE_SPACE[0]:
-                self.console.text = self.STATE_MACHINE.error_string
+                self.console.text = self.STATE_MACHINE.get_error_str()
 
             # MANUAL
             if self.STATE_MACHINE.current_state == STATE_SPACE[1]:
+                if self.STATE_MACHINE.last_state == STATE_SPACE[0]:
+                    self.console.text = f'Autonomy Mode (Check Error: {self.STATE_MACHINE.get_error_str()})'
                 self.console.text = "Choose enable Autonomy to continue..."
 
             # AUTONOMY INIT
             elif self.STATE_MACHINE.current_state == STATE_SPACE[2]:
                 self.console.text = "Autonomy Init"
+                if self.STATE_MACHINE.fork_load_status:
+                    self.console.text += " - Forks are Loaded!"
             
             # PICK INIT
             elif self.STATE_MACHINE.current_state == STATE_SPACE[3]:
@@ -311,15 +370,19 @@ class MainWindow(Screen):
         self.position_forks_data.text = f"{self.STATE_MACHINE.get_forks_position_str()}"
         self.position_forks_rel_data.text = f"{self.STATE_MACHINE.get_forks_rel_position_str()}"
         self.position_fork_pocket_error_data.text = f"{self.STATE_MACHINE.get_fork_pocket_error_str()}"
-        self.last_state_label_data.text = f"LAST = {self.STATE_MACHINE.last_state}"
-        self.curr_state_label_data.text = f"CURRENT = {self.STATE_MACHINE.current_state}"
-        self.next_state_label_data.text = f"NEXT = {self.STATE_MACHINE.next_state}"
+        self.last_state_label_data.text = f"LAST STATE = {self.STATE_MACHINE.last_state}"
+        self.curr_state_label_data.text = f"CURRENT STATE = {self.STATE_MACHINE.current_state}"
+        self.next_state_label_data.text = f"NEXT STATE = {self.STATE_MACHINE.next_state}"
 
     def check_for_pallet_popup(self, dt):
         if self.STATE_MACHINE.flag_ask_for_pallet_selection == True or self.STATE_MACHINE.flag_ask_pallet_again == True:
 
             self.STATE_MACHINE.flag_ask_for_pallet_selection = False
             self.STATE_MACHINE.flag_ask_pallet_again = False
+            try:
+                assert(self.STATE_MACHINE.flag_ask_for_pallet_selection == False and self.STATE_MACHINE.flag_ask_pallet_again == False)
+            except Exception as e:
+                print(f"ERROR: {e}\nPallet Selection flags we're not released")
             # self.stop_refresh_clock()
 
             self.choose_pallet_mode = BoxLayout(orientation='vertical', size=(self.popup_frame_width, self.popup_frame_height), size_hint=(1, 1))
@@ -353,6 +416,11 @@ class MainWindow(Screen):
 
             self.STATE_MACHINE.flag_ask_for_mode_selection = False
             self.STATE_MACHINE.flag_ask_mode_again = False
+
+            try:
+                assert(self.STATE_MACHINE.flag_ask_for_mode_selection == False and self.STATE_MACHINE.flag_ask_mode_again == False)
+            except Exception as e:
+                print(f"ERROR: {e}\nMode Selection flags we're not released")
             # self.stop_refresh_clock()
 
             self.choose_autonomy_mode = BoxLayout(orientation='vertical', size=(self.popup_frame_width, self.popup_frame_height), size_hint=(1, 1))
@@ -395,7 +463,10 @@ class MainWindow(Screen):
     def check_for_confirm_service(self, dt):
         if self.STATE_MACHINE.flag_ask_for_confirm:
             self.STATE_MACHINE.flag_ask_for_confirm = False
-            assert(self.STATE_MACHINE.flag_ask_for_confirm == False)
+            try:
+                assert(self.STATE_MACHINE.flag_ask_for_confirm == False)
+            except Exception as e:
+                print(f"ERROR: {e}\nConfirm flag was not released")
             self.console_container.add_widget(self.confirm_button)
 
     def start_all_clocks(self):

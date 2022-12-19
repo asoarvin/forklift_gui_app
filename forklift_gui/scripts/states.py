@@ -30,6 +30,11 @@ TOPIC_ERROR_REPORT = '/drive/error'
 
 GUI_PUBLISH_TOPIC = '/forklift_gui'
 
+SERVICE_MODE = 'event_selection_srv'
+SERVICE_PALLET = 'event_input_srv'
+SERVICE_CONFIRM = 'event_confirmation_srv'
+SERVICE_AUTONOMY = 'enable_autonomy_srv'
+
 STATE_SPACE = { 
     0: "STATE_ERROR",
     1: "STATE_MANUAL",
@@ -39,14 +44,14 @@ STATE_SPACE = {
     5: "STATE_PICK_FORK_APPROX_ALIGN",
     6: "STATE_PICK_POCKET_DETECT_ENABLE",
     7: "STATE_PICK_CLOSEDLOOP_FORK_ENABLE",
-    8: "STATE_PICK_POCKET_DETECT_CLOSEDLOOP_DISABLE",   # TODO Traffic Light
-    9: "STATE_PICK_LIFT_PALLET",                        # TODO Confirm Service 
+    8: "STATE_PICK_POCKET_DETECT_CLOSEDLOOP_DISABLE",
+    9: "STATE_PICK_LIFT_PALLET",
     10: "STATE_PLACEGND_INIT",
     11: "STATE_PLACEGND_PLACE_PALLET",
     12: "STATE_PLACESTACK_INIT",
     13: "STATE_PLACESTACK_FORK_APPROX_ALIGN",
     14: "STATE_PLACESTACK_PALLET_ALIGN",
-    15: "STATE_PLACESTACK_PLACE_PALLET"                 # TODO Confirm Serrvice
+    15: "STATE_PLACESTACK_PLACE_PALLET"
 }
 
 STATES_TOPIC_TRANSLATION = {
@@ -142,15 +147,15 @@ class ROS_STATES():
             pass
 
     def pallet_selection_server(self, dt):
-        self.event_srv = rospy.Service('event_input_srv', ForkliftEventInput, self.send_pallet_selection)
+        self.event_srv = rospy.Service(SERVICE_PALLET, ForkliftEventInput, self.send_pallet_selection)
         print("Ready to send pallet selection.")
 
     def event_selection_server(self, dt):
-        self.pallet_srv = rospy.Service('event_selection_srv', ForkliftEventSelection, self.send_event_selection)
+        self.pallet_srv = rospy.Service(SERVICE_MODE, ForkliftEventSelection, self.send_event_selection)
         print("Ready to send event selection.")
 
     def confirmation_server(self, dt):
-        self.confirm_srv = rospy.Service('event_confirmation_srv', ForkliftConfirmations, self.send_confirmation)
+        self.confirm_srv = rospy.Service(SERVICE_CONFIRM, ForkliftConfirmations, self.send_confirmation)
         print("Ready to send event confirmation.")
 
     def send_pallet_selection(self, req):
@@ -231,7 +236,7 @@ class ROS_STATES():
         return self.pallet_stack_count
     
     def get_pocket_heights_str(self):
-        ans = "Pocket Heights = "
+        ans = "Pocket Heights = ["
         count = 0
         try:
             for i in self._pockets:
@@ -240,26 +245,28 @@ class ROS_STATES():
         except:
             pass
             # print(f"ERROR getting pocket heights")
+        ans += ']'
         return ans
 
     def get_pocket_confidence_str(self):
-        ans = 'Pocket Confidence = '
+        ans = 'Pocket Confidence = ['
         try:
             for i in self._pocket_confidences:
                 ans += f"{round(float(i), 2)}, "
         except:
             pass
             # print(f"ERROR getting pocket confidences")
+        ans += ']'
         return ans
 
     def get_forks_position_str(self):
         return f"FORK (TILT, Y, Z): ({self.fork_tilt}, {self.fork_y}, {self.fork_z})"
 
     def get_forks_rel_position_str(self):
-        return f"FORK REL. (X, Y, THETA): ({self.fork_rel_x}, {self.fork_rel_y}, {self.fork_rel_angle})"
+        return f"PALLET (X, Y, THETA): ({self.fork_rel_x}, {self.fork_rel_y}, {self.fork_rel_angle})"
 
     def get_fork_pocket_error_str(self):
-        return f"FORK/POCKET ERROR (Y, Z): ({self.fork_pocket_error_y}, {self.fork_pocket_error_z})"
+        return f"ERROR (Y, Z): ({self.fork_pocket_error_y}, {self.fork_pocket_error_z})"
 
     def get_error_str(self):
         return f"[ERROR {self.error_code}]: {self.error_string}"
@@ -270,7 +277,7 @@ class ROS_STATES():
     def enable_autonomy(self, timeout=None):
         # rospy.wait_for_service('enable_autonomy', timeout=timeout)
         try:
-            autonomous_mode = rospy.ServiceProxy('enable_autonomy', ForkliftEnableAutonomy)
+            autonomous_mode = rospy.ServiceProxy(SERVICE_AUTONOMY, ForkliftEnableAutonomy)
             acknowledgement = autonomous_mode(True)
 
             if(acknowledgement.success):
@@ -285,7 +292,7 @@ class ROS_STATES():
     def disable_autonomy(self, timeout=None):
         # rospy.wait_for_service('enable_autonomy', timeout=timeout)
         try:
-            autonomous_mode = rospy.ServiceProxy('enable_autonomy', ForkliftEnableAutonomy)
+            autonomous_mode = rospy.ServiceProxy(SERVICE_AUTONOMY, ForkliftEnableAutonomy)
             acknowledgement = autonomous_mode(False)
 
             if(acknowledgement.success):
@@ -310,19 +317,6 @@ class ROS_STATES():
         except:
             print("[GUI ROS] error parsing new state published")
 
-    ''' FORKLIFTPALLETSTACKOFINTEREST
-    uint64 id
-    uint64 lifecycle
-
-    geometry_msgs/Point32 stack_center_m
-    geometry_msgs/Vector3 velocity_mps
-    geometry_msgs/Point32 dimension_m
-    float32 range_xy_m
-    float32 orientation_rad
-
-    float32[] pallet_pocket_height_m
-    float32[] pallet_pocket_confidence
-    '''
     def pallet_callback(self, msg):
         try:
             self._pockets = msg.stack_info.pallet_pocket_height_m
@@ -342,16 +336,6 @@ class ROS_STATES():
             print("[GUI ROS] error obtaining pallet stack count and other data")
         return
 
-    ''' FORKCONTROLPOSITION.MSG
-            # [-1 .. 1]
-            float32 fork_y_position
-
-            # [0 .. 1]
-            float32 fork_z_position
-
-            # [-1 .. 1]
-            float32 fork_tilt_position
-    '''
     def fork_control_pos_callback(self, msg):
         try:
             self.fork_y = round(float(msg.fork_y_position), 2)
@@ -378,16 +362,6 @@ class ROS_STATES():
             print("[GUI ROS] error obtaining fork position data")
         return
 
-    '''FORKCONTROLFEEDBACK.MSG
-    # [-1 .. 1]
-    float32 pallet_pocket_y_error
-
-    # [-1 .. 1]
-    float32 pallet_pocket_z_error
-
-    # [0 .. 1]
-    float32 distance_to_pallet
-    '''
     def fork_control_feedback_callback(self, msg):
         try:
             self.fork_pocket_error_y = round(float(msg.pallet_pocket_y_error), 2)
