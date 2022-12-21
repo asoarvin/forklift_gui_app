@@ -22,7 +22,7 @@ except Exception as e:
     print("STATE error importing ROS and/or Cyngn Libraries")
     pass
 
-TOPIC_STATES = '/current_state' # "/cyngn_state_manager/state"
+TOPIC_STATES = "/cyngn_state_manager/state" # "/cyngn_state_manager/state"
 TOPIC_PALLET_OF_INTEREST = "/message_translation/pallet_stack_of_interest"
 TOPIC_FORK_REPORT = "/cyngn/dbw/fork/status"
 TOPIC_FORK_CTL_FEEDBACK = "/cyngn/dbw/fork/control_closed_loop"
@@ -86,7 +86,7 @@ class ROS_STATES():
         self.user_selected_mode = 0                             # 1: pick, 2: place stack, 3: place ground
         self.user_selected_pallet = 0                           # 0 is bottom pallet, already valid, if not, is NONE
         self.user_inserted_forks = False
-        self.confirmation_timeout = 60000                       # 1 minute hard coded timeout on confirmations
+        self.confirmation_timeout = 3000                        # 1 minute hard coded timeout on confirmations
         # Gui / States interactions
         self.flag_ask_for_mode_selection = False                # For GUI Clock 
         self.flag_ask_mode_again = False                        # for close / re-open buttons
@@ -202,7 +202,7 @@ class ROS_STATES():
         # we're returning a response, so set flag to false so it won't send again
         self.flag_confirmed = False
 
-        return bool(self.flag_confirmed)
+        return bool(True)
 
     def find_next_state(self):
         tmp = ''
@@ -236,7 +236,7 @@ class ROS_STATES():
         return self.pallet_stack_count
     
     def get_pocket_heights_str(self):
-        ans = "Pocket Heights = ["
+        ans = "["
         count = 0
         try:
             for i in self._pockets:
@@ -260,13 +260,13 @@ class ROS_STATES():
         return ans
 
     def get_forks_position_str(self):
-        return f"FORK (TILT, Y, Z): ({self.fork_tilt}, {self.fork_y}, {self.fork_z})"
+        return f"({self.fork_tilt}, {self.fork_y}, {self.fork_z})"
 
     def get_forks_rel_position_str(self):
-        return f"PALLET (X, Y, THETA): ({self.fork_rel_x}, {self.fork_rel_y}, {self.fork_rel_angle})"
+        return f"({self.fork_rel_x}, {self.fork_rel_y}, {self.fork_rel_angle})"
 
     def get_fork_pocket_error_str(self):
-        return f"ERROR (Y, Z): ({self.fork_pocket_error_y}, {self.fork_pocket_error_z})"
+        return f"({self.fork_pocket_error_y}, {self.fork_pocket_error_z})"
 
     def get_error_str(self):
         return f"[ERROR {self.error_code}]: {self.error_string}"
@@ -275,7 +275,7 @@ class ROS_STATES():
         self.error_string = "ERROR: " + error_str
 
     def enable_autonomy(self, timeout=None):
-        # rospy.wait_for_service('enable_autonomy', timeout=timeout)
+        rospy.wait_for_service(SERVICE_AUTONOMY, timeout=timeout)
         try:
             autonomous_mode = rospy.ServiceProxy(SERVICE_AUTONOMY, ForkliftEnableAutonomy)
             acknowledgement = autonomous_mode(True)
@@ -290,7 +290,7 @@ class ROS_STATES():
             print("Service call failed: %s"%e)
 
     def disable_autonomy(self, timeout=None):
-        # rospy.wait_for_service('enable_autonomy', timeout=timeout)
+        rospy.wait_for_service(SERVICE_AUTONOMY, timeout=timeout)
         try:
             autonomous_mode = rospy.ServiceProxy(SERVICE_AUTONOMY, ForkliftEnableAutonomy)
             acknowledgement = autonomous_mode(False)
@@ -311,7 +311,7 @@ class ROS_STATES():
 
             for i in range(len(STATES_TOPIC_TRANSLATION)):
                 if STATES_TOPIC_TRANSLATION[i] == recv_state:
-                    print(f"{STATES_TOPIC_TRANSLATION[i] == recv_state} -- changing state to {STATE_SPACE[i]}")
+                    # print(f"{STATES_TOPIC_TRANSLATION[i] == recv_state} -- changing state to {STATE_SPACE[i]}")
                     self.change_state(STATE_SPACE[i])
                     return
         except:

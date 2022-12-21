@@ -96,8 +96,8 @@ class MainWindow(Screen):
         self.popup_frame_height = 700
 
         # Text Sizes
-        self.info_ts = 20
-        self.title_ts = 30
+        self.info_ts = 50
+        self.title_ts = 60
 
         self.start_all_clocks()
         self.load_screen()
@@ -178,6 +178,8 @@ class MainWindow(Screen):
         ###################
         ### UI Elements ###
         ###################
+
+        # Confirmation
         self.confirm_button = Button(
             text = "CONFIRM",
             size_hint_x = 0.75,
@@ -185,52 +187,112 @@ class MainWindow(Screen):
         )
         self.confirm_button.bind(on_press = self.confirm_callback)
 
-        self.traffic_light = Image(
-            source = self.yw_light
-        )
+        # Traffic Light Guidance
+        self.traffic_light = Image(source = self.yw_light)
         # self.video_stream = Texture(colorfmt='rgb', mipmap=True, callback=self.stream_callback)
 
+        # Tip Bar
         self.console = Label(
             text = "Initializing GUI",
             font_size = self.info_ts
         )
         self.console_container.add_widget(self.console)
 
-        self.pocket_count_data = Label(
-            text = f"Pallet Count = {self.STATE_MACHINE.get_pallet_stack_count()}",
+        # Pocket Count
+        self.pocket_count_layout = BoxLayout(orientation ='horizontal')
+        self.pocket_count_title = Label(
+            text = "Pallet Count: ",
             color = self.cyan,
+            size_hint = (1, 1),
+            font_size = self.title_ts
+        )
+        self.pocket_count_data = Label(
+            text = f"{self.STATE_MACHINE.get_pallet_stack_count()}",
+            color = self.cyan,
+            size_hint = (1, 1),
             font_size = self.info_ts
         )
+        self.pocket_count_title.bind(size = self.pocket_count_title.setter('text_size'))
         self.pocket_count_data.bind(size = self.pocket_count_data.setter('text_size'))
+        self.pocket_count_layout.add_widget(self.pocket_count_title)
+        self.pocket_count_layout.add_widget(self.pocket_count_data)
 
+        # Pocket Height Data
+        self.pocket_heights_layout = BoxLayout(orientation ='horizontal')
+        self.pocket_heights_title = Label(
+            text = "Pocket Center Heights: ",
+            color = self.cyan,
+            size_hint = (1, 1),
+            font_size = self.title_ts
+        )
         self.pocket_heights_data = Label(
             text = f"{self.STATE_MACHINE.get_pocket_heights_str()}",
             color = self.cyan,
+            size_hint = (1, 1),
             font_size = self.info_ts
         )
+        self.pocket_heights_title.bind(size = self.pocket_heights_title.setter('text_size'))
         self.pocket_heights_data.bind(size = self.pocket_heights_data.setter('text_size'))
+        self.pocket_heights_layout.add_widget(self.pocket_heights_title)
+        self.pocket_heights_layout.add_widget(self.pocket_heights_data)
 
+        # Fork Position
+        self.position_forks_layout = BoxLayout(orientation ='horizontal')
+        self.position_forks_title = Label(
+            text = "FORK (TILT, Y, Z): ",
+            color = self.white,
+            size_hint = (1, 1),
+            font_size = self.title_ts
+        )
         self.position_forks_data = Label(
             text = f"{self.STATE_MACHINE.get_forks_position_str()}",
             color = self.white,
+            size_hint = (1, 1),
             font_size = self.info_ts
         )
+        self.position_forks_title.bind(size = self.position_forks_title.setter('text_size'))
         self.position_forks_data.bind(size = self.position_forks_data.setter('text_size'))
+        self.position_forks_layout.add_widget(self.position_forks_title)
+        self.position_forks_layout.add_widget(self.position_forks_data)
 
+        # Relative Fork Position (Pallet Position)
+        self.position_forks_rel_layout = BoxLayout(orientation ='horizontal')
+        self.position_forks_rel_title = Label(
+            text = "PALLET (X, Y, THETA): ",
+            color = self.white,
+            size_hint = (1, 1),
+            font_size = self.title_ts
+        )
         self.position_forks_rel_data = Label(
             text = f"{self.STATE_MACHINE.get_forks_rel_position_str()}",
             color = self.white,
-            font_size = self.info_ts
+            font_size = self.info_ts,
+            size_hint = (1, 1),
         )
+        self.position_forks_rel_title.bind(size = self.position_forks_rel_title.setter('text_size'))
         self.position_forks_rel_data.bind(size = self.position_forks_rel_data.setter('text_size'))
+        self.position_forks_rel_layout.add_widget(self.position_forks_rel_title)
+        self.position_forks_rel_layout.add_widget(self.position_forks_rel_data)
 
+        # Fork / Pocket Error
+        self.position_fork_pocket_error_layout = BoxLayout(orientation ='horizontal')
+        self.position_fork_pocket_error_title = Label(
+            text = "ERROR (Y, Z): ",
+            color = self.white,
+            size_hint = (1, 1),
+            font_size = self.title_ts
+        )
         self.position_fork_pocket_error_data = Label(
             text = f"{self.STATE_MACHINE.get_fork_pocket_error_str()}",
             color = self.white,
+            size_hint = (1, 1),
             font_size = self.info_ts
         )
+        self.position_fork_pocket_error_title.bind(size = self.position_fork_pocket_error_title.setter('text_size'))
         self.position_fork_pocket_error_data.bind(size = self.position_fork_pocket_error_data.setter('text_size'))
-        
+        self.position_fork_pocket_error_layout.add_widget(self.position_fork_pocket_error_title)
+        self.position_fork_pocket_error_layout.add_widget(self.position_fork_pocket_error_data)
+
         self.last_state_label_data = Label(
             text = str(f"LAST STATE = {self.STATE_MACHINE.last_state}"),
             color = self.white,
@@ -260,11 +322,11 @@ class MainWindow(Screen):
         ###################################
         self.data_container.add_widget(self.curr_state_label_data)
         self.data_container.add_widget(self.last_state_label_data)
-        self.data_container.add_widget(self.pocket_count_data)
-        self.data_container.add_widget(self.pocket_heights_data)
-        self.data_container.add_widget(self.position_forks_data)
-        self.data_container.add_widget(self.position_forks_rel_data)
-        self.data_container.add_widget(self.position_fork_pocket_error_data)
+        self.data_container.add_widget(self.pocket_count_layout)
+        self.data_container.add_widget(self.pocket_heights_layout)
+        self.data_container.add_widget(self.position_forks_layout)
+        self.data_container.add_widget(self.position_forks_rel_layout)
+        self.data_container.add_widget(self.position_fork_pocket_error_layout)
 
         self.visual_container.add_widget(self.camera_container)
         self.visual_container.add_widget(self.console_container)
@@ -365,7 +427,7 @@ class MainWindow(Screen):
             elif self.STATE_MACHINE.current_state == STATE_SPACE[15]:
                 self.console.text = "Placing pallet on stack..."
 
-        self.pocket_count_data.text = f"Pallet Count = {self.STATE_MACHINE.get_pallet_stack_count()}"
+        self.pocket_count_data.text = f"{self.STATE_MACHINE.get_pallet_stack_count()}"
         self.pocket_heights_data.text = f"{self.STATE_MACHINE.get_pocket_heights_str()}"
         self.position_forks_data.text = f"{self.STATE_MACHINE.get_forks_position_str()}"
         self.position_forks_rel_data.text = f"{self.STATE_MACHINE.get_forks_rel_position_str()}"
@@ -465,9 +527,9 @@ class MainWindow(Screen):
             self.STATE_MACHINE.flag_ask_for_confirm = False
             try:
                 assert(self.STATE_MACHINE.flag_ask_for_confirm == False)
+                self.console_container.add_widget(self.confirm_button)
             except Exception as e:
                 print(f"ERROR: {e}\nConfirm flag was not released")
-            self.console_container.add_widget(self.confirm_button)
 
     def start_all_clocks(self):
         self.start_mode_popup_clock()
@@ -599,7 +661,11 @@ class MainWindow(Screen):
 
     def confirm_callback(self, event):
         self.console_container.remove_widget(self.confirm_button)
-        self.camera_container.remove_widget(self.traffic_light)
+        try:
+            self.camera_container.remove_widget(self.traffic_light)
+        except: 
+            print("didn't remove camera container")
+            pass
         self.STATE_MACHINE.flag_confirmed = True
 
 class forklift_guiApp(App):
